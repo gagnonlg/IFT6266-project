@@ -3,7 +3,9 @@
 # pylint: disable=invalid-name, no-member, too-few-public-methods
 
 import logging
+import os
 
+import h5py as h5
 import numpy as np
 import theano
 import theano.tensor as T
@@ -37,12 +39,10 @@ class LinearTransformation(object):
                 high=np.sqrt(1.0 / n_in),
                 size=(n_in, n_out),
             ).astype('float32'),
-            name='W',
         )
 
         self.b = theano.shared(
             value=np.zeros(n_out).astype('float32'),
-            name='b',
         )
 
         self.parameters = [self.W, self.b]
@@ -142,3 +142,48 @@ class MLP(object):
             inputs=[X],
             outputs=self.expression(X)
         )
+
+    def save(self, path):
+
+        uniq = path
+        i = 1
+        while os.path.exists(uniq):
+            uniq = path + '.{}'.format(i)
+            i+= 1
+            
+        savefile = h5.File(path, 'x')
+
+        for i, layer in enumerate(self.layers):
+            savefile.create_dataset(
+                name='layer{}/W'.format(i),
+                data=layer.parameters[0].get_value()
+            )
+            savefile.create_dataset(
+                name='layer{}/b'.format(i),
+                data=layer.parameters[1].get_value()
+            )
+
+        savefile.create_dataset('n_layers', data=len(self.layers))
+        savefile.close()
+            
+def load(path):
+    lfile = h5.File(path, 'r')
+    n_layers = lfile['n_layers'].value
+
+    Ws = []
+    bs = []
+    structure = []
+    for i in range(n_layers):
+        Ws.append(np.array(lfile['layer{}/W'.format(i)]))
+        bs.append(np.array(lfile['layer{}/b'.format(i)]))
+        structure.append(bs[-1].shape[0])
+
+    structure = [Ws[0].shape[0]] + structure
+
+    net = MLP(structure)
+
+    for i in range(n_layers):
+        net.layers[i].parameters[0].set_value(Ws[i])
+        net.layers[i].parameters[1].set_value(bs[i])
+
+    return net
