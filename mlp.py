@@ -47,7 +47,7 @@ class LinearTransformation(object):
 
         self.parameters = [self.W, self.b]
 
-    def __call__(self, X):
+    def expression(self, X):
         """ Create a symbolic expression X * W + b """
         return T.dot(X, self.W) + self.b
 
@@ -55,24 +55,49 @@ class LinearTransformation(object):
 class MLP(object):
     """ Multilayer perceptron """
 
-    def __init__(self, structure):
+    def __init__(self, structure, lr=0.01):
 
         self.layers = []
         self.parameters = []
+        self.lr = lr
 
         for ni, no in zip(structure[:-1], structure[1:]):
             self.layers.append(LinearTransformation((ni, no)))
             self.parameters += self.layers[-1].parameters
 
+        self.__compile_training_function()
+        self.__compile_test_function()
+
+    def train(self, X, Y, n_epochs, batch_size=128):
+        """ Train the mlp
+
+        Arguments:
+          X: Input data, of shape (N_SAMPLES, N_FEATURES)
+          Y: Target data, of shape (N_SAMPLES, N_TARGETS)
+          n_epochs: number of passes through whole dataset
+          batch_size: number of examples seen before updating parameters
+        """
+        for epoch in range(n_epochs):
+            losses = []
+            for i_batch in range(X.shape[0] / batch_size):
+                i0 = i_batch * batch_size
+                i1 = i0 + batch_size
+                losses.append(self.__train_fun(X[i0:i1], Y[i0:i1]))
+            log.info('epoch %d: loss=%f', epoch, np.mean(losses))
+
     def __call__(self, X):
+        return self.__test_fun(X)
+
+    def expression(self, X):
+        """ Symbolic expression reprensenting the forward propagation """
         tensor = X
         for i, layer in enumerate(self.layers):
-            tensor = layer(tensor)
+            tensor = layer.expression(tensor)
             if i < len(self.layers) - 1:
                 tensor = T.nnet.relu(tensor)
         return tensor
 
-    def training_function(self, lr=0.01):
+    def __compile_training_function(self):
         """Compile a theano function for training
 
         The resulting function takes 2 minibatches, X and Y, as input
@@ -87,24 +112,22 @@ class MLP(object):
         X = T.matrix('X')
         Y = T.matrix('Y')
 
-        loss = T.mean(T.pow(self(X) - Y, 2))
+        loss = T.mean(T.pow(self.expression(X) - Y, 2))
 
         gparams = [T.grad(loss, p) for p in self.parameters]
 
         updates = [
-            (param, param - lr * gparam)
+            (param, param - self.lr * gparam)
             for param, gparam in zip(self.parameters, gparams)
         ]
 
-        train_fun = theano.function(
+        self.__train_fun = theano.function(
             inputs=[X, Y],
             outputs=loss,
             updates=updates,
         )
 
-        return train_fun
-
-    def test_function(self):
+    def __compile_test_function(self):
         """Compile a theano function for testing
 
         The resulting function takes 1 minibatche X  as input
@@ -115,9 +138,7 @@ class MLP(object):
 
         X = T.matrix('X')
 
-        test_fun = theano.function(
+        self.__test_fun = theano.function(
             inputs=[X],
-            outputs=self(X)
+            outputs=self.expression(X)
         )
-
-        return test_fun

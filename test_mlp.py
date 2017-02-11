@@ -1,7 +1,7 @@
 """ Simple regression test for the Densely connected MLP """
 
-#xbimport logging
-#logging.basicConfig(level='DEBUG')
+import logging
+logging.basicConfig(level='INFO')
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -53,31 +53,33 @@ testx = np.atleast_2d(testx).T
 print '-> Building the model'
 
 network = mlp.MLP([1, 300, 1])
-training = network.training_function()
+#training = network.training_function()
 
 print '-> Training the model'
 
-batch_size=128
-n_train_batches=datax.size/batch_size
+network.train(datax, datay, 50)
+
+# batch_size=128
+# n_train_batches=datax.size/batch_size
  
-nepochs = 50
-epoch = 0
-while (epoch < nepochs):
+# nepochs = 50
+# epoch = 0
+# while (epoch < nepochs):
     
-    losses = np.zeros(n_train_batches)
+#     losses = np.zeros(n_train_batches)
 
-    for minibatch_index in range(n_train_batches):
-        i0 = minibatch_index * batch_size
-        i1 = (minibatch_index + 1) * batch_size
-        losses[minibatch_index] = training(datax[i0:i1], datay[i0:i1])
+#     for minibatch_index in range(n_train_batches):
+#         i0 = minibatch_index * batch_size
+#         i1 = (minibatch_index + 1) * batch_size
+#         losses[minibatch_index] = training(datax[i0:i1], datay[i0:i1])
 
-    print 'epoch {}: avg. loss = {}'.format(epoch, np.mean(losses))
-    epoch += 1
+#     print 'epoch {}: avg. loss = {}'.format(epoch, np.mean(losses))
+#     epoch += 1
 
 print '-> Testing the model'
     
-test = network.test_function()
-outputs = test(testx)
+#test = network.test_function()
+#outputs = test(testx)
 
 # graph of result
 
@@ -89,7 +91,7 @@ y = testy[isort]
 
 # print test(testx[isort])
 
-plt.plot(x, test(testx[isort]), 'k')
+plt.plot(x, network(testx[isort]), 'k')
 plt.plot(x, np.sin(x), 'k--')
 plt.scatter(x, y, facecolors='none', edgecolor='r')
 plt.savefig('sine_test.png')
