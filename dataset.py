@@ -1,4 +1,5 @@
 """ Functions for dealing with the dataset """
+import glob
 import logging
 import os
 import subprocess
@@ -71,3 +72,27 @@ def reconstruct_from_flat(border, patch):
     tensor[48:64, 16:64] = border[bdim*2:bdim*3].reshape((16, 48, 3))
     tensor[0:48, 48:64] = border[bdim*3:bdim*4].reshape((48, 16, 3))
     return tensor
+
+
+def train_set_size(path):
+    return len(glob.glob(path + '/train2014/*.jpg'))
+
+
+def generator(path, batch_size):
+    paths = glob.glob(path + '/train2014/*.jpg')
+    nsamples = train_set_size(path)
+    xbatch = np.zeros((batch_size, (64*64 - 32*32)*3), dtype='float32')
+    ybatch = np.zeros((batch_size, 32*32*3), dtype='float32')
+    while True:
+        ibase = 0
+        while ibase < nsamples - batch_size:
+            for j in range(0, batch_size):
+                while True:
+                    img = load_image(paths[ibase + j])
+                    ibase += 1
+                    if len(img.shape) == 3:
+                        break
+                x, y = get_flattened_example(img)
+                xbatch[j] = x
+                ybatch[j] = y
+            yield xbatch, ybatch

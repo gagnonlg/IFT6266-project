@@ -85,6 +85,17 @@ class MLP(object):
                 losses.append(self.__train_fun(X[i0:i1], Y[i0:i1]))
             log.info('epoch %d: loss=%f', epoch, np.mean(losses))
 
+    def train_with_generator(self, generator, n_epochs, samples_per_epoch):
+        for epoch in range(n_epochs):
+            seen = 0
+            losses = []
+            while seen < samples_per_epoch:
+                logging.debug('seen: %d of %d', seen, samples_per_epoch)
+                xbatch, ybatch = generator.next()
+                seen += xbatch.shape[0]
+                losses.append(self.__train_fun(xbatch, ybatch))
+            log.info('epoch %d: loss=%f', epoch, np.mean(losses))
+
     def __call__(self, X):
         return self.__test_fun(X)
 
