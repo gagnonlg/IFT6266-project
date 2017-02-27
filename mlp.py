@@ -91,7 +91,7 @@ class MLP(object):
             losses = []
             while seen < samples_per_epoch:
                 logging.debug('seen: %d of %d', seen, samples_per_epoch)
-                xbatch, ybatch = next(generator)
+                xbatch, ybatch = generator.next()
                 seen += xbatch.shape[0]
                 losses.append(self.__train_fun(xbatch, ybatch))
             log.info('epoch %d: loss=%f', epoch, np.mean(losses))

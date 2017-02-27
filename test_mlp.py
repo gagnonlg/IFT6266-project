@@ -9,7 +9,7 @@ import numpy as np
 import mlp
 
 ## Generate the test data
-print('-> Generating the data')
+print '-> Generating the data'
 
 # random generator seed
 np.random.seed(750)
@@ -50,12 +50,12 @@ datay = np.atleast_2d(datay).T
 testx = np.atleast_2d(testx).T
 
 #create and train the network
-print('-> Building the model')
+print '-> Building the model'
 
 network = mlp.MLP([1, 300, 1])
 #training = network.training_function()
 
-print('-> Training the model')
+print '-> Training the model'
 
 network.train(datax, datay, 50)
 
@@ -76,7 +76,7 @@ network.train(datax, datay, 50)
 #     print 'epoch {}: avg. loss = {}'.format(epoch, np.mean(losses))
 #     epoch += 1
 
-print('-> Testing the model')
+print '-> Testing the model'
     
 #test = network.test_function()
 #outputs = test(testx)
