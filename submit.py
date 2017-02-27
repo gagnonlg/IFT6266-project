@@ -17,14 +17,13 @@ def launch(name, script):
 
     dirp = os.path.dirname(os.path.realpath(__file__))
     
-    job_cmd = '{}\n{}'.format(
+    job_cmd = '{}\n{}\n{}'.format(
         open(dirp + '/submit_header.sh', 'r').read(),
-        open(script, 'r').read()
+        open(script, 'r').read(),
+        open(dirp + '/submit_footer.sh', 'r').read(),
     )
 
-    wdir = os.getenv('SCRATCH')
-    if wdir is None:
-        wdir = os.getenv('HOME')
+    wdir = os.getenv('HOME')
     
     qsub_cmd = [
         'qsub',
@@ -32,6 +31,7 @@ def launch(name, script):
         '-N', name,
         '-d', wdir,
         '-joe', '-koe',
+        '-l', 'walltime=30:00:00'
     ]
 
     log.info('command: %s', ' '.join(qsub_cmd))
