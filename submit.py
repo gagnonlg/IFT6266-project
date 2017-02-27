@@ -31,7 +31,7 @@ def launch(name, script):
         '-N', name,
         '-d', wdir,
         '-joe', '-koe',
-        '-l', 'walltime=30:00:00'
+        '-l', 'walltime=30:00:00,nodes=1:ppn=1',
     ]
 
     log.info('command: %s', ' '.join(qsub_cmd))
