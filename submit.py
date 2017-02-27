@@ -9,7 +9,7 @@ log = logging.getLogger('submit.py')
 def get_args():
     argp = argparse.ArgumentParser()
     argp.add_argument('--name', required=True)
-    argp.add_argument('--script', required=True)
+    argp.add_argument('--script', default='/dev/stdin')
     return argp.parse_args()
 
 
