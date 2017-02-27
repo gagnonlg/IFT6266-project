@@ -3,7 +3,7 @@ import glob
 import logging
 import os
 import subprocess
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 import numpy as np
 import PIL.Image
@@ -23,7 +23,7 @@ def retrieve():
 
     if not os.path.exists(uncompressed) and not os.path.exists(local_path):
         log.info('Downloading the dataset')
-        urllib.urlretrieve(url=URL, filename=local_path)
+        urllib.request.urlretrieve(url=URL, filename=local_path)
 
     else:
         log.info('Found local copy of dataset')
