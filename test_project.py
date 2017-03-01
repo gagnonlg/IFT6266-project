@@ -1,4 +1,6 @@
 import logging
+import os
+import subprocess
 
 import h5py as h5
 import PIL.Image
@@ -11,7 +13,7 @@ fmt = '[%(asctime)s] %(name)s %(levelname)s %(message)s'
 logging.basicConfig(level='DEBUG', format=fmt)
 log = logging.getLogger('test_project')
 
-netw = mlp.MLP([(64*64 - 32*32)*3, 1000, 32*32*3], lr=0.0001)
+netw = mlp.MLP([(64*64 - 32*32)*3, 1000, 1000, 1000, 32*32*3], lr=0.01)
 
 h5dataset = h5.File('mlp_dataset.h5', 'r')
 
@@ -33,10 +35,11 @@ def __gen(batch_size):
 
 datagen = __gen(1000)
     
-for i in range(10):
+for i in range(100):
     b = netw(xt[np.newaxis, :])
     img = dataset.reconstruct_from_flat(xt, b[0])
     PIL.Image.fromarray(img.astype(np.uint8)).save('test_image_{}.jpg'.format(i))
+    subprocess.call('cp test_image_{}.jpg {}'.format(i, os.getenv('HOME')), shell=True)
     log.info('epoch %d', i)
     netw.train_with_generator(datagen, 1, h5dataset['train/input'].shape[0])
 
