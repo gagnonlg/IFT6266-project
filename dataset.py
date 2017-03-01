@@ -5,6 +5,7 @@ import os
 import subprocess
 import urllib
 
+import h5py as h5
 import numpy as np
 import PIL.Image
 
@@ -13,6 +14,75 @@ URL = "http://lisaweb.iro.umontreal.ca/transfert/lisa/datasets/mscoco_inpaiting/
 log = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
+#### function to use to create HDF5 dataset for input
+
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
+    args = [iter(iterable)] * n
+    return izip_longest(fillvalue=fillvalue, *args)
+
+def get_path_list(datadir):
+    log.info('Getting good paths from %s', datadir)
+    good = []
+    paths = glob.glob(datadir + '/*.jpg')
+    n_paths = len(paths)
+    for i, pth in enumerate(paths):
+        if i % 1000 == 0:
+            log.debug('%d/%d', i, n_paths)
+        img = load_image(pth)
+        if len(img.shape) == 3:
+            good.append(pth)
+    log.info('Found %d good paths out of %d', len(good), n_paths)
+    return good
+
+def generate_flattened(datadir):
+    for path in get_path_list(datadir):
+        img = load_image(path)
+        yield get_flattened_example(img)
+
+def create_mlp_dataset(dataset_path, output_path):
+    #dataset_path = retrieve()
+
+    def __create(dset, h5file):
+        
+        x_maxshape = (None,) + ((64*64 - 32*32) * 3,)
+        y_maxshape = (None,) + (32*32 * 3,)
+        
+        x_dset = outf.create_dataset(
+            name=(dset+'/input'),
+            shape=(1, x_maxshape[1]),
+            maxshape=x_maxshape,
+            compression='lzf',
+        )
+        y_dset = outf.create_dataset(
+            name=(dset+'/target'),
+            shape=(1, y_maxshape[1]),
+            maxshape=y_maxshape,
+            compression='lzf',
+        )
+
+        gen = generate_flattened('{}/{}2014'.format(dataset_path, dset))
+        x, y = gen.next()
+        x_dset[:] = x
+        y_dset[:] = y
+        count = 1
+
+        for x,y in gen:
+            x_dset.resize(count + 1, axis=0)
+            y_dset.resize(count + 1, axis=0)
+            x_dset[count:] = x
+            y_dset[count:] = y
+            count += 1
+            if count % 100 == 0:
+                print count
+
+    with h5.File(output_path, 'w') as outf:
+        __create('train', outf)
+        __create('val', outf)
+
+#####
+        
 def retrieve():
     """ Download and/or uncompress the dataset as necessary
 
