@@ -13,7 +13,7 @@ fmt = '[%(asctime)s] %(name)s %(levelname)s %(message)s'
 logging.basicConfig(level='DEBUG', format=fmt)
 log = logging.getLogger('test_project')
 
-netw = mlp.MLP([(64*64 - 32*32)*3, 1000, 1000, 1000, 32*32*3], lr=0.01)
+netw = mlp.MLP([(64*64 - 32*32)*3, 1000, 1000, 1000, 32*32*3], lr=0.00001)
 
 h5dataset = h5.File('mlp_dataset.h5', 'r')
 
