@@ -11,18 +11,14 @@ fmt = '[%(asctime)s] %(name)s %(levelname)s %(message)s'
 logging.basicConfig(level='DEBUG', format=fmt)
 log = logging.getLogger('test_project')
 
-# test figure
-path = '/home/glg/projets/ift6266_projet/IFT6266-project/inpainting/train2014/COCO_train2014_000000149429.jpg'
-xt, yt = dataset.get_flattened_example(dataset.load_image(path))
-
-
-#datapath = dataset.retrieve()
-#datagen = dataset.generator(datapath, batch_size=128)
-
 netw = mlp.MLP([(64*64 - 32*32)*3, 1000, 32*32*3], lr=0.0001)
 
-
 h5dataset = h5.File('mlp_dataset.h5', 'r')
+
+# test figure
+xt = h5dataset['val/input'][0]
+yt = h5dataset['val/target'][0]
+
 def __gen(batch_size):
 
     x_train = h5dataset['train/input']
