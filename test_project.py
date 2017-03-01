@@ -35,11 +35,11 @@ def __gen(batch_size):
 
 datagen = __gen(1000)
     
-for i in range(100):
+for i in range(1000):
     b = netw(xt[np.newaxis, :])
     img = dataset.reconstruct_from_flat(xt, b[0])
     PIL.Image.fromarray(img.astype(np.uint8)).save('test_image_{}.jpg'.format(i))
-    subprocess.call('cp test_image_{}.jpg {}'.format(i, os.getenv('HOME')), shell=True)
+    subprocess.call('cp test_image_{}.jpg {}/test_images/'.format(i, os.getenv('HOME')), shell=True)
     log.info('epoch %d', i)
     netw.train_with_generator(datagen, 1, h5dataset['train/input'].shape[0])
 
