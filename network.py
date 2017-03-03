@@ -32,16 +32,21 @@ class Layer(object):
         """ Return the trainable parameters """
         return []
 
+    def reg_loss(self):
+        """ Regularization term to add to loss """
+        return 0
+
 class LinearTransformation(Layer):
     """ Linear transformation of the form X * W + b """
 
-    def __init__(self, shape):
+    def __init__(self, shape, l2=0.0):
         """ Linear transformation of the form X * W + b
 
         Arguments:
           shape : tuple (n_in, n_out) defining the dimensions of W
         """
 
+        self.l2 = l2
         self.shape = shape
         n_in, n_out = self.shape
 
@@ -58,6 +63,9 @@ class LinearTransformation(Layer):
         self.b = theano.shared(
             value=np.zeros(n_out).astype('float32'),
         )
+
+    def reg_loss(self):
+        return self.l2 * self.W.norm(2)
 
     def expression(self, X):
         """ Create a symbolic expression X * W + b """
@@ -140,7 +148,9 @@ class Network(object):
                 )
             )
 
-        loss = mse_loss(self.expression(X), Y)
+        loss = mse_loss(self.expression(X), Y) + \
+               sum([lyr.reg_loss() for lyr in self.layers])
+
         gparams = [T.grad(loss, param) for param in self.parameters]
 
         v_updates = [

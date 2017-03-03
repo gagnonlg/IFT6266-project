@@ -39,9 +39,9 @@ testx = np.atleast_2d(testx).T
 print '-> Building the model'
 
 mlp = network.Network()
-mlp.add(network.LinearTransformation((1, 300)))
+mlp.add(network.LinearTransformation((1, 300), l2=0.001))
 mlp.add(network.ReLU())
-mlp.add(network.LinearTransformation((300, 1)))
+mlp.add(network.LinearTransformation((300, 1), l2=0.001))
 mlp.compile(lr=0.02, momentum=0.5)
 
 print '-> Training the model'
