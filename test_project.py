@@ -25,7 +25,7 @@ netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, n_out)))
 netw.compile(lr=0.00001, momentum=0)
 
-h5dataset = h5.File('mlp_dataset.h5', 'r')
+h5dataset = h5.File('/home2/ift6ed20/mlp_dataset.h5', 'r')
 
 # test figure
 xt = h5dataset['val/input'][0]
