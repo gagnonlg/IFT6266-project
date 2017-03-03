@@ -21,12 +21,13 @@ def mse_loss(xmatrix, ymatrix):
 
 # API
 class Layer(object):
-    def shape(self):
-        return ()
-    
+
     def expression(self, X):
         """ Return a theano symbolic expression for this layer """
         return X
+
+    def training_expression(self, X):
+        return self.expression(X)
     
     def parameters(self):
         """ Return the trainable parameters """
@@ -35,6 +36,9 @@ class Layer(object):
     def reg_loss(self):
         """ Regularization term to add to loss """
         return 0
+
+    def updates(self):
+        return []
 
 class LinearTransformation(Layer):
     """ Linear transformation of the form X * W + b """
@@ -79,6 +83,43 @@ class ReLU(Layer):
     def expression(self, X):
         return T.nnet.relu(X)
 
+class BatchNorm(Layer):
+
+    def __init__(self, n_input):
+        
+        self.gamma = theano.shared(np.float32(1.0))
+        self.beta = theano.shared(np.float32(0.0))
+
+        self.online_mean = theano.shared(
+            np.zeros(n_input).astype('float32')
+        )
+        self.online_variance = theano.shared(
+            np.ones(n_input).astype('float32')
+        )
+
+    def expression(self, X):
+        normd = (X - self.online_mean) / T.sqrt(self.online_variance + 0.001)
+        return self.gamma * normd + self.beta
+        
+    def training_expression(self, X):
+        self.sample_mean = T.mean(X, axis=0)
+        self.sample_variance = T.var(X, axis=0)
+        normd = (X - self.sample_mean) / T.sqrt(self.sample_variance + 0.001)
+        return self.gamma * normd + self.beta    
+
+    def parameters(self):
+        return [self.gamma, self.beta]
+
+    def updates(self):
+        mean_upd = self.online_mean * 0.99 + self.sample_mean * 0.01
+        var_upd = self.online_variance * 0.99 + self.sample_variance * 0.01
+        return [
+            (self.online_mean, mean_upd),
+            (self.online_variance, var_upd)
+        ]
+
+            
+    
 
 ########################################################################
 # Network <=> a collection of layers
@@ -100,11 +141,18 @@ class Network(object):
         self.__train_fun = self.__make_training_function(lr, momentum)
         self.__test_fun = self.__make_test_function()
 
+    def training_expression(self, X):
+        tensor = X
+        for i, layer in enumerate(self.layers):
+            tensor = layer.training_expression(tensor)
+        return tensor
+
     def expression(self, X):
         tensor = X
         for i, layer in enumerate(self.layers):
             tensor = layer.expression(tensor)
         return tensor
+
 
     def train(self, X, Y, n_epochs, batch_size):
         for epoch in range(n_epochs):
@@ -148,14 +196,15 @@ class Network(object):
                 )
             )
 
-        loss = mse_loss(self.expression(X), Y) + \
-               sum([lyr.reg_loss() for lyr in self.layers])
+        loss = mse_loss(self.training_expression(X), Y)
+        for regl in [lyr.reg_loss() for lyr in self.layers]:
+            loss = loss + regl
 
         gparams = [T.grad(loss, param) for param in self.parameters]
 
         v_updates = [
             (velo, momentum * velo - lr * gparam)
-            for velo, param, gparam in zip(self.velocity, self.parameters, gparams)
+            for velo, gparam in zip(self.velocity, gparams)
         ]
         
         p_updates = [
@@ -163,10 +212,14 @@ class Network(object):
             for param, velo in zip(self.parameters, self.velocity)
         ]
 
+        updates = v_updates + p_updates
+        for upd in [lyr.updates() for lyr in self.layers]:
+            updates += upd
+
         return theano.function(
             inputs=[X, Y],
             outputs=loss,
-            updates=(v_updates + p_updates)
+            updates=updates
         )
 
     def __make_test_function(self):

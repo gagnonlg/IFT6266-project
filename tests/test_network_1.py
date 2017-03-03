@@ -4,7 +4,7 @@ import network
 import matplotlib.pyplot as plt
 import cPickle
 
-logging.basicConfig(level='DEBUG')
+logging.basicConfig(level='INFO')
 
 print '-> Generating the data'
 # random generator seed
@@ -25,13 +25,6 @@ def __gen_data(n):
 datax, datay = __gen_data(N_TRAIN)
 testx, testy  = __gen_data(N_TEST)
 
-mean = np.mean(datax)
-std = np.std(datax)
-datax -= mean
-datax /= std
-testx -= mean
-testx /= std
-
 datax = np.atleast_2d(datax).T
 datay = np.atleast_2d(datay).T
 testx = np.atleast_2d(testx).T
@@ -39,14 +32,18 @@ testx = np.atleast_2d(testx).T
 print '-> Building the model'
 
 mlp = network.Network()
-mlp.add(network.LinearTransformation((1, 300), l2=0.001))
+mlp.add(network.BatchNorm(1))
+mlp.add(network.LinearTransformation((1, 100), l2=0.00001))
 mlp.add(network.ReLU())
-mlp.add(network.LinearTransformation((300, 1), l2=0.001))
-mlp.compile(lr=0.02, momentum=0.5)
+mlp.add(network.BatchNorm(100))
+mlp.add(network.LinearTransformation((100, 100), l2=0.00001))
+mlp.add(network.ReLU())
+mlp.add(network.LinearTransformation((100, 1), l2=0.0))
+mlp.compile(lr=0.01, momentum=0.5)
 
 print '-> Training the model'
 
-mlp.train(datax, datay, 50, 128)
+mlp.train(datax, datay, 10, 256)
 mlp.save('test_model_1.gz')
 
 print '-> Testing the model'
@@ -54,7 +51,7 @@ print '-> Testing the model'
 mlp = network.Network.load('test_model_1.gz')
     
 isort = np.argsort(testx[:,0])
-x = testx[isort] * std + mean
+x = testx[isort]
 y = testy[isort]
 
 plt.plot(x, mlp(testx[isort]), 'k')
