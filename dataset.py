@@ -42,7 +42,7 @@ def generate_flattened(datadir):
         yield get_flattened_example(img)
 
 def create_mlp_dataset(dataset_path, output_path):
-    #dataset_path = retrieve()
+    dataset_path = retrieve()
 
     def __create(dset, h5file):
         
