@@ -5,6 +5,8 @@ import theano
 import numpy as np
 import os
 import h5py as h5
+import gzip
+import cPickle
 
 theano.config.floatX = 'float32'
 
@@ -117,26 +119,13 @@ class Network(object):
             log.info('epoch %d: loss=%f', epoch, np.mean(losses))
 
     def save(self, path):
+        with gzip.open(path, 'wb') as savefile:
+            cPickle.dump(self, savefile)
 
-        uniq = path
-        i = 1
-        while os.path.exists(uniq):
-            uniq = path + '.{}'.format(i)
-            i+= 1
-            
-        savefile = h5.File(uniq, 'x')
-
-        for i, layer in enumerate(self.layers):
-            grp = savefile.create_group("layer{}".format(i))
-            grp.attrs['type'] = type(layer).__name__
-            for j, param in enumerate(layer.parameters()):
-                grp.create_dataset(
-                    name='param{}'.format(j),
-                    data=layer.parameters()[j].get_value()
-                )
-
-        savefile.create_dataset('n_layers', data=len(self.layers))
-        savefile.close()
+    @staticmethod
+    def load(path):
+        with gzip.open(path, 'rb') as savefile:
+            return cPickle.load(savefile)
 
     def __make_training_function(self, lr):
 

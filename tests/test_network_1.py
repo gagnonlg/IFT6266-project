@@ -47,10 +47,11 @@ mlp.compile(0.01)
 print '-> Training the model'
 
 mlp.train(datax, datay, 25, 128)
-mlp.save('test_model_1.h5')
-cPickle.dump(mlp, 'test.pkl')
+mlp.save('test_model_1.gz')
 
 print '-> Testing the model'
+
+mlp = network.Network.load('test_model_1.gz')
     
 isort = np.argsort(testx[:,0])
 x = testx[isort] * std + mean
