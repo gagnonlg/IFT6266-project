@@ -87,9 +87,9 @@ class Network(object):
         self.layers.append(layer)
         self.parameters += layer.parameters()
 
-    def compile(self, lr):
+    def compile(self, lr, momentum):
 
-        self.__train_fun = self.__make_training_function(lr)
+        self.__train_fun = self.__make_training_function(lr, momentum)
         self.__test_fun = self.__make_test_function()
 
     def expression(self, X):
@@ -127,23 +127,36 @@ class Network(object):
         with gzip.open(path, 'rb') as savefile:
             return cPickle.load(savefile)
 
-    def __make_training_function(self, lr):
+    def __make_training_function(self, lr, momentum=0.0):
 
         X = T.matrix()
         Y = T.matrix()
 
+        self.velocity = []
+        for param in self.parameters:
+            self.velocity.append(
+                theano.shared(
+                    np.zeros_like(param.get_value()).astype('float32')
+                )
+            )
+
         loss = mse_loss(self.expression(X), Y)
         gparams = [T.grad(loss, param) for param in self.parameters]
 
-        updates = [
-            (param, param - lr * gparam)
-            for param, gparam in zip(self.parameters, gparams)
+        v_updates = [
+            (velo, momentum * velo - lr * gparam)
+            for velo, param, gparam in zip(self.velocity, self.parameters, gparams)
+        ]
+        
+        p_updates = [
+            (param, param + velo)
+            for param, velo in zip(self.parameters, self.velocity)
         ]
 
         return theano.function(
             inputs=[X, Y],
             outputs=loss,
-            updates=updates
+            updates=(v_updates + p_updates)
         )
 
     def __make_test_function(self):

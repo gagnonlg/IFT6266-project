@@ -42,11 +42,11 @@ mlp = network.Network()
 mlp.add(network.LinearTransformation((1, 300)))
 mlp.add(network.ReLU())
 mlp.add(network.LinearTransformation((300, 1)))
-mlp.compile(0.01)
+mlp.compile(lr=0.02, momentum=0.5)
 
 print '-> Training the model'
 
-mlp.train(datax, datay, 25, 128)
+mlp.train(datax, datay, 50, 128)
 mlp.save('test_model_1.gz')
 
 print '-> Testing the model'
