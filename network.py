@@ -201,7 +201,7 @@ class Network(object):
     def __run_training_epoch(self, X, Y):
         losses = []
         for idx in grouper(range(X.shape[0]), self.cache_size[0]):
-            idx_ = filter(None, idx)
+            idx_ = filter(lambda n: n is not None, idx)
             i0 = idx_[0]
             i1 = idx_[-1]
             self.X_cache.set_value(X[i0:i1])
