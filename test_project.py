@@ -16,6 +16,7 @@ log = logging.getLogger('test_project')
 n_in = (64*64 - 32*32) * 3
 n_out = 32*32*3
 netw = network.Network()
+netw.add(network.ScaleOffset(scale=1.0/255))
 netw.add(network.LinearTransformation((n_in, 1000)))
 netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, 1000)))
@@ -23,6 +24,7 @@ netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, 1000)))
 netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, n_out)))
+netw.add(network.Clip(0.0, 255.0))
 netw.compile(
     lr=0.00001,
     momentum=0,

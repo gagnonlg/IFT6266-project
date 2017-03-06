@@ -44,7 +44,27 @@ class Layer(object):
         return 0
 
     def updates(self):
-        return []        
+        return []
+
+class ScaleOffset(Layer):
+
+    def __init__(self, scale=1.0, offset=0.0):
+
+        self.scale = scale
+        self.offset = offset
+
+    def expression(self, X):
+        return X * self.scale + self.offset
+
+class Clip(Layer):
+
+    def __init__(self, min, max):
+        self.min = min
+        self.max = max
+
+    def expression(self, X):
+        return X.clip(self.min, self.max)
+                 
 
 class LinearTransformation(Layer):
     """ Linear transformation of the form X * W + b """
