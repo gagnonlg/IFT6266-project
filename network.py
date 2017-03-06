@@ -64,7 +64,6 @@ class Clip(Layer):
 
     def expression(self, X):
         return X.clip(self.min, self.max)
-                 
 
 class LinearTransformation(Layer):
     """ Linear transformation of the form X * W + b """
@@ -108,6 +107,12 @@ class LinearTransformation(Layer):
 class ReLU(Layer):
     def expression(self, X):
         return T.nnet.relu(X)
+
+
+class Sigmoid(Layer):
+    def expression(self, X):
+        return T.nnet.sigmoid(X)
+
 
 class BatchNorm(Layer):
 

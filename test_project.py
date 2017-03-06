@@ -24,7 +24,8 @@ netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, 1000)))
 netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, n_out)))
-netw.add(network.Clip(0.0, 255.0))
+netw.add(network.Sigmoid())
+netw.add(network.ScaleOffset(scale=255.0))
 netw.compile(
     lr=0.00001,
     momentum=0,
