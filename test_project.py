@@ -23,7 +23,12 @@ netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, 1000)))
 netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, n_out)))
-netw.compile(lr=0.00001, momentum=0)
+netw.compile(
+    lr=0.00001,
+    momentum=0,
+    batch_size=128,
+    cache_size=(20000, n_in, n_out)
+)
 
 h5dataset = h5.File('/home2/ift6ed20/mlp_dataset.h5', 'r')
 
@@ -31,26 +36,17 @@ h5dataset = h5.File('/home2/ift6ed20/mlp_dataset.h5', 'r')
 xt = h5dataset['val/input'][0]
 yt = h5dataset['val/target'][0]
 
-def __gen(batch_size):
-
-    x_train = h5dataset['train/input']
-    y_train = h5dataset['train/target']
-
-    while True:
-        n = x_train.shape[0]
-        for i in range(0, n, batch_size):
-            x = x_train[i:i+batch_size]
-            y = y_train[i:i+batch_size]
-            yield x, y
-
-datagen = __gen(1000)
-    
 for i in range(1000):
     b = netw(xt[np.newaxis, :])
     img = dataset.reconstruct_from_flat(xt, b[0])
     PIL.Image.fromarray(img.astype(np.uint8)).save('test_image_{}.jpg'.format(i))
     subprocess.call('cp test_image_{}.jpg {}/test_images/'.format(i, os.getenv('HOME')), shell=True)
     log.info('epoch %d', i)
-    netw.train_with_generator(datagen, 1, h5dataset['train/input'].shape[0])
+    netw.train(
+        X=h5dataset['train/input'],
+        Y=h5dataset['train/target'],
+        n_epochs=1,
+        start_epoch=i
+    )
 
 netw.save('test_network.h5')

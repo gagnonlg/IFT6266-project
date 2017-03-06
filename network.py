@@ -163,8 +163,8 @@ class Network(object):
         return tensor
 
 
-    def train(self, X, Y, n_epochs):
-        for epoch in range(n_epochs):
+    def train(self, X, Y, n_epochs, start_epoch=0):
+        for epoch in range(start_epoch, start_epoch + n_epochs):
             loss = self.__run_training_epoch(X, Y)
             log.info('epoch %d: loss=%f', epoch, loss)
 
