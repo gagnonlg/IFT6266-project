@@ -43,11 +43,14 @@ h5dataset = h5.File(datapath, 'r')
 xt = h5dataset['val/input'][0]
 yt = h5dataset['val/target'][0]
 
+imgdir = '{}/test_images/{}'.format(os.getenv('HOME'), os.getenv('PBS_O_JOBID'))
+subprocess.call(['mkdir', '-p', imgdir])
+
 for i in range(1000):
     b = netw(xt[np.newaxis, :])
     img = dataset.reconstruct_from_flat(xt, b[0])
     PIL.Image.fromarray(img.astype(np.uint8)).save('test_image_{}.jpg'.format(i))
-    subprocess.call('cp test_image_{}.jpg {}/test_images/'.format(i, os.getenv('HOME')), shell=True)
+    subprocess.call(['cp', 'test_image_{}.jpg'.format(i), imgdir])
     log.info('epoch %d', i)
     netw.train(
         X=h5dataset['train/input'],
