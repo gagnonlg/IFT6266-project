@@ -30,7 +30,11 @@ netw.compile(
     cache_size=(20000, n_in, n_out)
 )
 
-h5dataset = h5.File('/home2/ift6ed20/mlp_dataset.h5', 'r')
+datapath = os.getenv('DATAPATH')
+if datapath is None:
+    datapath = os.getenv('PWD') + '/mlp_dataset.h5'
+log.info('datapath: %s', datapath)
+h5dataset = h5.File(datapath, 'r')
 
 # test figure
 xt = h5dataset['val/input'][0]

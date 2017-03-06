@@ -10,10 +10,11 @@ def get_args():
     argp = argparse.ArgumentParser()
     argp.add_argument('--name', required=True)
     argp.add_argument('--script', default='/dev/stdin')
+    argp.add_argument('--datapath')
     return argp.parse_args()
 
 
-def launch(name, script):
+def launch(name, script, datapath):
 
     dirp = os.path.dirname(os.path.realpath(__file__))
     
@@ -34,6 +35,9 @@ def launch(name, script):
         '-l', 'walltime=48:00:00,nodes=1:ppn=1,mem=2gb',
     ]
 
+    if datapath is not None:
+        qsub_cmd += ['-v', 'DATAPATH={}'.format(datapath)]
+
     log.info('command: %s', ' '.join(qsub_cmd))
 
     proc = subprocess.Popen(
@@ -52,7 +56,7 @@ def launch(name, script):
 
 def main():
     args = get_args()
-    launch(args.name, args.script)
+    launch(args.name, args.script, args.datapath)
 
 
 if __name__ == '__main__':
