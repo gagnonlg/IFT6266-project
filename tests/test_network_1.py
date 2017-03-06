@@ -39,11 +39,11 @@ mlp.add(network.BatchNorm(100))
 mlp.add(network.LinearTransformation((100, 100), l2=0.00001))
 mlp.add(network.ReLU())
 mlp.add(network.LinearTransformation((100, 1), l2=0.0))
-mlp.compile(lr=0.01, momentum=0.5)
+mlp.compile(lr=0.01, momentum=0.5, batch_size=256, cache_size=(1000,1,1))
 
 print '-> Training the model'
 
-mlp.train(datax, datay, 10, 256)
+mlp.train(datax, datay, 10)
 mlp.save('test_model_1.gz')
 
 print '-> Testing the model'

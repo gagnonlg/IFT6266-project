@@ -16,12 +16,6 @@ log = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 #### function to use to create HDF5 dataset for input
 
-def grouper(iterable, n, fillvalue=None):
-    "Collect data into fixed-length chunks or blocks"
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
-    args = [iter(iterable)] * n
-    return izip_longest(fillvalue=fillvalue, *args)
-
 def get_path_list(datadir):
     log.info('Getting good paths from %s', datadir)
     good = []

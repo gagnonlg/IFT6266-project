@@ -24,7 +24,7 @@ netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, 1000)))
 netw.add(network.ReLU())
 netw.add(network.LinearTransformation((1000, n_out)))
-netw.compile(lr=0.01)
+netw.compile(lr=0.01, momentum=0)
 
 h5dataset = h5.File('mlp_dataset.h5', 'r')
 

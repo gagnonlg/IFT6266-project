@@ -7,11 +7,17 @@ import os
 import h5py as h5
 import gzip
 import cPickle
+import itertools
 
 theano.config.floatX = 'float32'
 
 log = logging.getLogger(__name__)
 
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
+    args = [iter(iterable)] * n
+    return itertools.izip_longest(fillvalue=fillvalue, *args)
 
 def mse_loss(xmatrix, ymatrix):
     return T.mean(T.pow(xmatrix - ymatrix, 2).sum(axis=1))
@@ -38,7 +44,7 @@ class Layer(object):
         return 0
 
     def updates(self):
-        return []
+        return []        
 
 class LinearTransformation(Layer):
     """ Linear transformation of the form X * W + b """
@@ -136,7 +142,10 @@ class Network(object):
         self.layers.append(layer)
         self.parameters += layer.parameters()
 
-    def compile(self, lr, momentum):
+    def compile(self, lr, momentum, batch_size, cache_size):
+
+        self.batch_size = batch_size
+        self.cache_size = cache_size
 
         self.__train_fun = self.__make_training_function(lr, momentum)
         self.__test_fun = self.__make_test_function()
@@ -154,25 +163,23 @@ class Network(object):
         return tensor
 
 
-    def train(self, X, Y, n_epochs, batch_size):
+    def train(self, X, Y, n_epochs):
         for epoch in range(n_epochs):
-            losses = []
-            for i_batch in range(X.shape[0] / batch_size):
-                i0 = i_batch * batch_size
-                i1 = i0 + batch_size
-                losses.append(self.__train_fun(X[i0:i1], Y[i0:i1]))
-            log.info('epoch %d: loss=%f', epoch, np.mean(losses))
+            loss = self.__run_training_epoch(X, Y)
+            log.info('epoch %d: loss=%f', epoch, loss)
 
-    def train_with_generator(self, generator, n_epochs, samples_per_epoch):
-        for epoch in range(n_epochs):
-            seen = 0
-            losses = []
-            while seen < samples_per_epoch:
-                logging.debug('seen: %d of %d', seen, samples_per_epoch)
-                xbatch, ybatch = generator.next()
-                seen += xbatch.shape[0]
-                losses.append(self.__train_fun(xbatch, ybatch))
-            log.info('epoch %d: loss=%f', epoch, np.mean(losses))
+
+    def __run_training_epoch(self, X, Y):
+        losses = []
+        for idx in grouper(range(X.shape[0]), self.cache_size[0]):
+            idx_ = filter(None, idx)
+            i0 = idx_[0]
+            i1 = idx_[-1]
+            self.X_cache.set_value(X[i0:i1])
+            self.Y_cache.set_value(Y[i0:i1])
+            for ibatch in range(0, self.cache_size[0]/self.batch_size):
+                losses.append(self.__train_fun(ibatch))
+        return np.mean(losses)
 
     def save(self, path):
         with gzip.open(path, 'wb') as savefile:
@@ -184,9 +191,21 @@ class Network(object):
             return cPickle.load(savefile)
 
     def __make_training_function(self, lr, momentum=0.0):
+        nrows_cache = self.cache_size[0]
+        ncols_X_cache = self.cache_size[1]
+        ncols_Y_cache = self.cache_size[2]
+        
+        self.X_cache = theano.shared(
+            np.zeros((nrows_cache, ncols_X_cache)).astype('float32')
+        )
 
-        X = T.matrix()
-        Y = T.matrix()
+        self.Y_cache = theano.shared(
+            np.zeros((nrows_cache, ncols_Y_cache)).astype('float32')
+        )
+
+        # placeholders
+        X = T.matrix('X')
+        Y = T.matrix('Y')
 
         self.velocity = []
         for param in self.parameters:
@@ -216,10 +235,18 @@ class Network(object):
         for upd in [lyr.updates() for lyr in self.layers]:
             updates += upd
 
+        index = T.lscalar()
+
+        bound0 = index * self.batch_size
+        bound1 = (index + 1) * self.batch_size
         return theano.function(
-            inputs=[X, Y],
+            inputs=[index],
             outputs=loss,
-            updates=updates
+            updates=updates,
+            givens={
+                X: self.X_cache[bound0:bound1],
+                Y: self.Y_cache[bound0:bound1]
+            }
         )
 
     def __make_test_function(self):
