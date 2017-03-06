@@ -195,7 +195,7 @@ class Network(object):
 
             if np.isnan(loss):
                 log.error('loss is nan, aborting')
-                return
+                raise RuntimeException('Loss is NaN')
 
 
     def __run_training_epoch(self, X, Y):

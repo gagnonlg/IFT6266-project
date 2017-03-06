@@ -28,7 +28,7 @@ netw.add(network.Sigmoid())
 netw.add(network.ScaleOffset(scale=255.0))
 netw.compile(
     lr=0.00001,
-    momentum=0,
+    momentum=0.5,
     batch_size=1000,
     cache_size=(20000, n_in, n_out)
 )
