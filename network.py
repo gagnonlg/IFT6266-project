@@ -193,6 +193,10 @@ class Network(object):
             loss = self.__run_training_epoch(X, Y)
             log.info('epoch %d: loss=%f', epoch, loss)
 
+            if np.isnan(loss):
+                log.error('loss is nan, aborting')
+                return
+
 
     def __run_training_epoch(self, X, Y):
         losses = []

@@ -29,7 +29,7 @@ netw.add(network.ScaleOffset(scale=255.0))
 netw.compile(
     lr=0.00001,
     momentum=0,
-    batch_size=128,
+    batch_size=1000,
     cache_size=(20000, n_in, n_out)
 )
 
