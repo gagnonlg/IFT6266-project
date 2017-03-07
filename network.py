@@ -83,8 +83,8 @@ class LinearTransformation(Layer):
 
         self.W = theano.shared(
             value=np.random.uniform(
-                low=-np.sqrt(1.0 / n_in),
-                high=np.sqrt(1.0 / n_in),
+                low=-np.sqrt(6.0 / (n_in + n_out)),
+                high=np.sqrt(6.0 / (n_in + n_out)),
                 size=(n_in, n_out),
             ).astype('float32'),
         )
