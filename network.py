@@ -209,6 +209,11 @@ class Network(object):
             for ibatch in range(0, self.cache_size[0]/self.batch_size):
                 losses.append(self.__train_fun(ibatch))
                 log.debug('ibatch=%d, i0=%d, i1=%d, loss=%f', ibatch, i0, i1, losses[-1])
+                bound0 = ibatch * self.batch_size
+                bound1 = (ibatch + 1) * self.batch_size
+                x = self.X_cache.get_value()[bound0:bound1]
+                y = self.Y_cache.get_value()[bound0:bound1]
+                log.debug('xbatch: %s, ybatch: %s', str(x.shape), str(y.shape))
         return np.mean(losses)
 
     def save(self, path):
