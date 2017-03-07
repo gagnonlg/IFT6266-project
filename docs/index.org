@@ -1,0 +1,101 @@
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="style1.css" />
+#+TITLE: IFT6266 project blog
+#+AUTHOR: Louis-Guillaume Gagnon
+
+* [2017-03-07 Tue 16:11] Introduction
+
+So I think it is about time I write an introductory post for my
+IFT6266 project blog. 
+
+During the last few weeks I've been slowly but surely starting to
+implement a baseline model for the inpainting task. To begin, I've
+chosen a simple densely connected MLP which I think should perform
+fairly well and is relatively easy to implement, even in straight
+theano which I'm not really used to (mainly used Keras in the past).
+
+** The Code
+
+The code can be found on github:
+https://github.com/gagnonlg/IFT6266-project. Mainly of interest is the
+"network.py" file which implements the basic blocks needed. I actually
+take inspiration from the Keras abstraction of a model being a stack
+of layers. Each layer follows a simple API consisting of five methods:
+
++ Layer.expression(self, X) :: Returns a theano symbolic expression
+     for this layer, given an input tensor. Defaults to X (the
+     identity).
++ Layer.training_expression(self, X) :: In case the expression is
+     different at training time, as in the case of a batch
+     normalization layer for example. Defaults to Layer.expression.
++ Layer.parameters(self, X) :: Returns a list of trainable parameters
+     for which the gradient of the loss function must be
+     computed. Defaults to an empty list.
++ Layer.reg_loss(self, X) :: Returns a regularization term to add to
+     the loss. This can be used to implement L2 weight regularization,
+     for example. Defaults to 0.
++ Layer.updates(self, X) :: Returns a list of updates to add to the
+     training function. Used in batch normalization, for example, to
+     update the running statistics on the mini-batches.
+
+So Far, the following layers are defined:
+
++ ScaleOffset :: Scale and offset the input tensor.
++ Clip :: Clip the input tensor within defined bounds.
++ LinearTransformation :: X*W + b, a staple of MLP's. Also supports L2
+     regularization for W.
++ ReLU :: The rectified linear unit
++ Sigmoid :: The famous sigmoid activation
++ BatchNorm :: Batch normalization.
+
+These layers are collected by a *Network* object, through its *add*
+method. The *compile* methods actually creates the needed theano
+functions. Right now mse loss is used and SGD with momentum is
+implemented. The *train* method iteratively caches chunks of the
+dataset in a shared variable from which minibatches are sampled for 
+the training.
+
+** Validation
+
+In my experience, it helps a lot to have a simple benchmark problem on
+which good results are easy to attain fast, in order to validate that
+everything is working when non-trivial changes are made. The
+validation used here is the simple problem of fitting a noisy 
+sinusoidal curve. See tests/test_network_1.py. Using a 2-layer architecture
+with 100 hidden units per hidden layer, batch normalization, relu activations
+(but linear output) with some momentum and l2 regularization, the following
+performance is obtained after only 10 epochs:
+
+[[./sine_test.png]]
+
+** Baseline model
+
+My baseline model for the inpainting problem is a simple 3-layer
+densely connected MLP with 1000 units per layer, batch normalization,
+ReLU hidden activations, momentum and l2 regularization. The output
+consists of individual sigmoids for all pixels which are scaled
+by 255. The model was allowed to train for 1000 epochs. The
+performance obtained during the training can be visualised below for a
+validation image:
+
+[[./test_images.gif]]
+
+The performance is actually better than I expected for such a
+relatively simple model! The network is quickly able to get at least
+the luminosity/color gradient right and later on resolves quite well
+some of the features such as the arm. However, as the training
+progresses, we can clearly see that the model tends to improve rather
+slowly. 
+
+** Next step
+
+The obvious next step is to implement a convolutionnal layer which I
+hope will help achieve better performance.
+
+** Note: Setting up the code on the hades cluster
+
+I tried working with the module system but it seemed like a real pain
+to get a consistent environment setup for all the packages I needed so
+I resorted to install anaconda, as suggested on a blog from last
+year's IFT6266 course: https://ift6266.github.io/2016/02/19/install_theano/.
+
+
