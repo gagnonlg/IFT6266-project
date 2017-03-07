@@ -10,7 +10,7 @@ import dataset
 import network
 
 fmt = '[%(asctime)s] %(name)s %(levelname)s %(message)s'
-logging.basicConfig(level='DEBUG', format=fmt)
+logging.basicConfig(level='INFO', format=fmt)
 log = logging.getLogger('test_project')
 
 n_in = (64*64 - 32*32) * 3
