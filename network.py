@@ -206,7 +206,7 @@ class Network(object):
             i1 = idx_[-1]
             self.X_cache.set_value(X[i0:i1])
             self.Y_cache.set_value(Y[i0:i1])
-            for ibatch in range(0, self.cache_size[0]/self.batch_size):
+            for ibatch in range(0, len(idx_)/self.batch_size):
                 losses.append(self.__train_fun(ibatch))
                 log.debug('ibatch=%d, i0=%d, i1=%d, loss=%f', ibatch, i0, i1, losses[-1])
                 bound0 = ibatch * self.batch_size
