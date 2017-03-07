@@ -16,22 +16,21 @@ log = logging.getLogger('test_project')
 n_in = (64*64 - 32*32) * 3
 n_out = 32*32*3
 netw = network.Network()
-# netw.add(network.BatchNorm(n_in))
-# netw.add(network.LinearTransformation((n_in, 1000)))
-# netw.add(network.ReLU())
-# netw.add(network.BatchNorm(1000))
-# netw.add(network.LinearTransformation((1000, 1000)))
-# netw.add(network.ReLU())
-# netw.add(network.BatchNorm(1000))
-# netw.add(network.LinearTransformation((1000, 1000)))
-# netw.add(network.ReLU())
-# netw.add(network.BatchNorm(1000))
-# netw.add(network.LinearTransformation((1000, n_out)))
-# netw.add(network.Sigmoid())
-# netw.add(network.ScaleOffset(scale=255.0))
-netw.add(network.LinearTransformation((n_in, n_out)))
+netw.add(network.BatchNorm(n_in))
+netw.add(network.LinearTransformation((n_in, 1000), l2=0.001))
+netw.add(network.ReLU())
+netw.add(network.BatchNorm(1000))
+netw.add(network.LinearTransformation((1000, 1000), l2=0.001))
+netw.add(network.ReLU())
+netw.add(network.BatchNorm(1000))
+netw.add(network.LinearTransformation((1000, 1000), l2=0.001))
+netw.add(network.ReLU())
+netw.add(network.BatchNorm(1000))
+netw.add(network.LinearTransformation((1000, n_out), l2=0.001))
+netw.add(network.Sigmoid())
+netw.add(network.ScaleOffset(scale=255.0))
 netw.compile(
-    lr=0.000001,
+    lr=0.0000001,
     momentum=0.5,
     batch_size=1000,
     cache_size=(20000, n_in, n_out)
