@@ -46,7 +46,7 @@ h5dataset = h5.File(datapath, 'r')
 xt = h5dataset['val/input'][0]
 yt = h5dataset['val/target'][0]
 
-imgdir = '{}/test_images/{}'.format(os.getenv('HOME'), os.getenv('PBS_O_JOBID'))
+imgdir = '{}/test_images/{}'.format(os.getenv('HOME'), os.path.basename(os.getenv('LSCRATCH')))
 subprocess.call(['mkdir', '-p', imgdir])
 
 for i in range(1000):
