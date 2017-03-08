@@ -46,7 +46,7 @@ mlp.compile(lr=0.01, momentum=0.5, batch_size=256, cache_size=(1000,1,1))
 
 print '-> Training the model'
 
-mlp.train(datax, datay, 10)
+mlp.train(datax, datay, 50)
 mlp.save('test_model_1.gz')
 
 print '-> Testing the model'
