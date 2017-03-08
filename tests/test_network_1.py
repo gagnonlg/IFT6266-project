@@ -1,6 +1,8 @@
 import logging
 import numpy as np
 import network
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import cPickle
 
