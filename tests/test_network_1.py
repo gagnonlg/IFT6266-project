@@ -33,12 +33,15 @@ print '-> Building the model'
 
 mlp = network.Network()
 mlp.add(network.BatchNorm(1))
-mlp.add(network.LinearTransformation((1, 100), l2=0.00001))
+mlp.add(network.Dropout(0.2))
+mlp.add(network.LinearTransformation((1, 200), l2=0.00001))
 mlp.add(network.ReLU())
-mlp.add(network.BatchNorm(100))
-mlp.add(network.LinearTransformation((100, 100), l2=0.00001))
+mlp.add(network.Dropout(0.5))
+mlp.add(network.BatchNorm(200))
+mlp.add(network.LinearTransformation((200, 200), l2=0.00001))
 mlp.add(network.ReLU())
-mlp.add(network.LinearTransformation((100, 1), l2=0.0))
+mlp.add(network.Dropout(0.5))
+mlp.add(network.LinearTransformation((200, 1), l2=0.0))
 mlp.compile(lr=0.01, momentum=0.5, batch_size=256, cache_size=(1000,1,1))
 
 print '-> Training the model'

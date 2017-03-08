@@ -10,6 +10,7 @@ import cPickle
 import itertools
 
 theano.config.floatX = 'float32'
+theano.config.reoptimize_unpickled_function = True
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +46,21 @@ class Layer(object):
 
     def updates(self):
         return []
+
+
+class Dropout(Layer):
+    def __init__(self, drop_prob, seed=None):
+        self.rng = T.shared_randomstreams.RandomStreams(seed=seed)
+        self.keep_prob = 1 - drop_prob
+
+    def training_expression(self, X):
+        self.stream = self.rng.uniform(size=X.shape)
+        self.mask = T.cast(self.stream < self.keep_prob, 'float32')
+        return self.mask * X
+
+    def expression(self, X):
+        return X * self.keep_prob
+        
 
 class ScaleOffset(Layer):
 
