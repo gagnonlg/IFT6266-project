@@ -189,10 +189,12 @@ class Network(object):
 
     def compile(self, lr, momentum, batch_size, cache_size):
 
+        self.lr = lr
+
         self.batch_size = batch_size
         self.cache_size = cache_size
 
-        self.__train_fun = self.__make_training_function(lr, momentum)
+        self.__train_fun = self.__make_training_function(momentum)
         self.__test_fun = self.__make_test_function()
         self.__valid_fun = self.__make_validation_function()
                 
@@ -216,43 +218,110 @@ class Network(object):
               val_data,
               n_epochs,
               start_epoch=0,
-              patience=0,
-              threshold=1.0,
+              early_stopping_patience=1,
+              improvement_threshold=1.0,
+              lr_reduce_factor=1.0,
+              lr_reduce_patience=1,
+              lr_reduce_cooldown=0.0,
               save_path=None):
 
-        budget = patience
+        cooldown = 0
+        early_stopping_budget = early_stopping_patience
+        lr_reduce_budget = lr_reduce_patience
         best_vloss = float('inf')
         
         for epoch in range(start_epoch, start_epoch + n_epochs):
+
+            # First, run the training for the current epoch
             loss = self.__run_training_epoch(X, Y)
 
+            # Bail if the loss is NaN
             if np.isnan(loss):
-                log.error('loss is nan, aborting')
-                raise RuntimeError('Loss is NaN')
+               log.error('loss is nan, aborting')
+               raise RuntimeError('Loss is NaN')
 
+            # Now, compute the validation loss
             vloss = self.__validation_loss(val_data[0], val_data[1])
+            log.info(
+                'epoch %d: loss=%f, vloss=%f, best_vloss=%f',
+                epoch,
+                loss,
+                vloss,
+                best_vloss
+            )
+            log.info(
+                'epoch %d: patience: early_stop=%d, lr_reduce=%d',
+                epoch,
+                early_stopping_budget,
+                lr_reduce_budget
+            )
 
-            log.info('epoch %d: loss=%f, vloss=%f, best_vloss=%f, budget=%d', epoch, loss, vloss, best_vloss, budget)
+            if cooldown > 0:
+                log.info('epoch %d: in cooldown', epoch)
 
-            if (vloss < best_vloss):
-                if (vloss < (best_vloss * threshold)):
-                    budget = patience
-                best_vloss = vloss
-                if save_path is not None:
-                    self.save(save_path)
-                    log.info('model saved as %s', save_path)
+            # If the new lost is the best one, checkpoint the model
+            if vloss < best_vloss and save_path is not None:
+                self.save(save_path)
+                log.info('epoch %d: new best vloss=%f, model saved in %s',
+                         epoch,
+                         vloss,
+                         save_path
+                )
+
+            # If the new loss is significantly better, reset early
+            # stopping
+            if vloss < (best_vloss * improvement_threshold):
+                log.info(
+                    'epoch %d: vloss significantly better',
+                    epoch
+                )
+                early_stopping_budget = early_stopping_patience
+                lr_reduce_budget = lr_reduce_patience
+                cooldown = max(0, cooldown - 1)
+
             else:
-                budget -= 1
+                log.info(
+                    'epoch %d: vloss not significantly better',
+                    epoch
+                )
 
-            if budget < 0:
-                log.info('epoch %d: early stopping', epoch)
-                break
+                if cooldown == 0:
+                
+                    if early_stopping_budget == 0:
+                        log.info('epoch %d: early stopping', epoch)
+                        break
+                    else:
+                        early_stopping_budget = max(
+                            0,
+                            early_stopping_budget - 1
+                        )
 
+                    if lr_reduce_budget == 0:
+                        new_lr = self.lr * lr_reduce_factor
+                        log.info(
+                            'epoch %d: learning rate reduced from %f to %f',
+                            epoch,
+                            self.lr,
+                            new_lr
+                        )
+                        self.lr = new_lr
+                        cooldown = lr_reduce_cooldown
+                        lr_reduce_budget =  lr_reduce_patience
+                    else:
+                        lr_reduce_budget = max(
+                            0,
+                            lr_reduce_budget - 1
+                        )
+                else:
+                    cooldown = max(0, cooldown - 1)
+               
+            # Update the best loss and cooldown
+            best_vloss = min(best_vloss, vloss)
 
     def __run_training_epoch(self, X, Y):
         losses = []
         for ibatch in self.__cache_generator(X, Y):
-            losses.append(self.__train_fun(ibatch))
+            losses.append(self.__train_fun(ibatch, self.lr))
             if log.isEnabledFor(logging.DEBUG):
                 # costly operation...
                 bound0 = ibatch * self.batch_size
@@ -297,7 +366,7 @@ class Network(object):
         return loss
 
 
-    def __make_training_function(self, lr, momentum=0.0):
+    def __make_training_function(self, momentum=0.0):
         nrows_cache = self.cache_size[0]
         ncols_X_cache = self.cache_size[1]
         ncols_Y_cache = self.cache_size[2]
@@ -313,6 +382,7 @@ class Network(object):
         # placeholders
         X = T.matrix('X')
         Y = T.matrix('Y')
+        lr = T.scalar()
 
         self.velocity = []
         for param in self.parameters:
@@ -345,12 +415,12 @@ class Network(object):
         bound0 = index * self.batch_size
         bound1 = (index + 1) * self.batch_size
         return theano.function(
-            inputs=[index],
+            inputs=[index, lr],
             outputs=loss,
             updates=updates,
             givens={
                 X: self.X_cache[bound0:bound1],
-                Y: self.Y_cache[bound0:bound1]
+                Y: self.Y_cache[bound0:bound1],
             }
         )
 
