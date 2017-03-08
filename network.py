@@ -49,8 +49,12 @@ class Layer(object):
 
 
 class Dropout(Layer):
-    def __init__(self, drop_prob, seed=None):
-        self.rng = T.shared_randomstreams.RandomStreams(seed=seed)
+    def __init__(self, drop_prob, rng=None):
+        if rng is None:
+            self.rng = T.shared_randomstreams.RandomStreams()
+        else:
+            self.rng = rng
+
         self.keep_prob = 1 - drop_prob
 
     def training_expression(self, X):
@@ -190,6 +194,8 @@ class Network(object):
 
         self.__train_fun = self.__make_training_function(lr, momentum)
         self.__test_fun = self.__make_test_function()
+        self.__valid_fun = self.__make_validation_function()
+                
 
     def training_expression(self, X):
         tensor = X
@@ -204,35 +210,76 @@ class Network(object):
         return tensor
 
 
-    def train(self, X, Y, n_epochs, start_epoch=0):
+    def train(self,
+              X,
+              Y,
+              val_data,
+              n_epochs,
+              start_epoch=0,
+              patience=0,
+              threshold=1.0,
+              save_path=None):
+
+        budget = patience
+        best_vloss = float('inf')
+        
         for epoch in range(start_epoch, start_epoch + n_epochs):
             loss = self.__run_training_epoch(X, Y)
-            log.info('epoch %d: loss=%f', epoch, loss)
 
             if np.isnan(loss):
                 log.error('loss is nan, aborting')
                 raise RuntimeError('Loss is NaN')
 
+            vloss = self.__validation_loss(val_data[0], val_data[1])
+
+            log.info('epoch %d: loss=%f, vloss=%f, best_vloss=%f, budget=%d', epoch, loss, vloss, best_vloss, budget)
+
+            if (vloss < best_vloss):
+                if (vloss < (best_vloss * threshold)):
+                    budget = patience
+                best_vloss = vloss
+                if save_path is not None:
+                    self.save(save_path)
+                    log.info('model saved as %s', save_path)
+            else:
+                budget -= 1
+
+            if budget < 0:
+                log.info('epoch %d: early stopping', epoch)
+                break
+
 
     def __run_training_epoch(self, X, Y):
         losses = []
+        for ibatch in self.__cache_generator(X, Y):
+            losses.append(self.__train_fun(ibatch))
+            if log.isEnabledFor(logging.DEBUG):
+                # costly operation...
+                bound0 = ibatch * self.batch_size
+                bound1 = (ibatch + 1) * self.batch_size
+                x = self.X_cache.get_value()[bound0:bound1]
+                y = self.Y_cache.get_value()[bound0:bound1]
+                log.debug('xbatch: %s, ybatch: %s', str(x.shape), str(y.shape))
+        return np.mean(losses)
+    
+    def __validation_loss(self, Xv, Yv):
+        losses = []
+        for ibatch in self.__cache_generator(Xv, Yv, batch_size=self.cache_size[0]):
+            losses.append(self.__valid_fun(ibatch))
+        return np.mean(losses)
+
+    def __cache_generator(self, X, Y, batch_size=None):
+        if batch_size is None:
+            batch_size = self.batch_size
         for idx in grouper(range(X.shape[0]), self.cache_size[0]):
             idx_ = filter(lambda n: n is not None, idx)
             i0 = idx_[0]
             i1 = idx_[-1]
             self.X_cache.set_value(X[i0:i1])
             self.Y_cache.set_value(Y[i0:i1])
-            for ibatch in range(0, len(idx_)/self.batch_size):
-                losses.append(self.__train_fun(ibatch))
-                log.debug('ibatch=%d, i0=%d, i1=%d, loss=%f', ibatch, i0, i1, losses[-1])
-                if log.isEnabledFor(logging.DEBUG):
-                    # costly operation...
-                    bound0 = ibatch * self.batch_size
-                    bound1 = (ibatch + 1) * self.batch_size
-                    x = self.X_cache.get_value()[bound0:bound1]
-                    y = self.Y_cache.get_value()[bound0:bound1]
-                    log.debug('xbatch: %s, ybatch: %s', str(x.shape), str(y.shape))
-        return np.mean(losses)
+            bs = min(batch_size, len(idx_))
+            for ibatch in range(0, len(idx_)/bs):
+                yield ibatch
 
     def save(self, path):
         with gzip.open(path, 'wb') as savefile:
@@ -242,6 +289,13 @@ class Network(object):
     def load(path):
         with gzip.open(path, 'rb') as savefile:
             return cPickle.load(savefile)
+
+    def __loss(self, X, Y):
+        loss = mse_loss(self.training_expression(X), Y)
+        for regl in [lyr.reg_loss() for lyr in self.layers]:
+            loss = loss + regl
+        return loss
+
 
     def __make_training_function(self, lr, momentum=0.0):
         nrows_cache = self.cache_size[0]
@@ -268,9 +322,7 @@ class Network(object):
                 )
             )
 
-        loss = mse_loss(self.training_expression(X), Y)
-        for regl in [lyr.reg_loss() for lyr in self.layers]:
-            loss = loss + regl
+        loss = self.__loss(X, Y)
 
         gparams = [T.grad(loss, param) for param in self.parameters]
 
@@ -309,4 +361,18 @@ class Network(object):
             outputs=self.expression(X)
         )
   
-
+    def __make_validation_function(self):
+        X = T.matrix()
+        Y = T.matrix()
+        index = T.lscalar()
+        bound0 = index * self.batch_size
+        bound1 = (index + 1) * self.batch_size
+        return theano.function(
+            inputs=[index],
+            outputs=self.__loss(X, Y),
+            givens={
+                X: self.X_cache[bound0:bound1],
+                Y: self.Y_cache[bound0:bound1]
+            }
+        )
+            
