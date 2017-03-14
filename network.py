@@ -49,8 +49,12 @@ class Layer(object):
 
 
 class Dropout(Layer):
-    def __init__(self, drop_prob, seed=None):
-        self.rng = T.shared_randomstreams.RandomStreams(seed=seed)
+    def __init__(self, drop_prob, rng=None):
+        if rng is None:
+            self.rng = T.shared_randomstreams.RandomStreams()
+        else:
+            self.rng = rng
+
         self.keep_prob = 1 - drop_prob
 
     def training_expression(self, X):
@@ -185,11 +189,15 @@ class Network(object):
 
     def compile(self, lr, momentum, batch_size, cache_size):
 
+        self.lr = lr
+
         self.batch_size = batch_size
         self.cache_size = cache_size
 
-        self.__train_fun = self.__make_training_function(lr, momentum)
+        self.__train_fun = self.__make_training_function(momentum)
         self.__test_fun = self.__make_test_function()
+        self.__valid_fun = self.__make_validation_function()
+                
 
     def training_expression(self, X):
         tensor = X
@@ -204,35 +212,143 @@ class Network(object):
         return tensor
 
 
-    def train(self, X, Y, n_epochs, start_epoch=0):
+    def train(self,
+              X,
+              Y,
+              val_data,
+              n_epochs,
+              start_epoch=0,
+              early_stopping_patience=1,
+              improvement_threshold=1.0,
+              lr_reduce_factor=1.0,
+              lr_reduce_patience=1,
+              lr_reduce_cooldown=0.0,
+              save_path=None):
+
+        cooldown = 0
+        early_stopping_budget = early_stopping_patience
+        lr_reduce_budget = lr_reduce_patience
+        best_vloss = float('inf')
+        
         for epoch in range(start_epoch, start_epoch + n_epochs):
+
+            # First, run the training for the current epoch
             loss = self.__run_training_epoch(X, Y)
-            log.info('epoch %d: loss=%f', epoch, loss)
 
+            # Bail if the loss is NaN
             if np.isnan(loss):
-                log.error('loss is nan, aborting')
-                raise RuntimeError('Loss is NaN')
+               log.error('loss is nan, aborting')
+               raise RuntimeError('Loss is NaN')
 
+            # Now, compute the validation loss
+            vloss = self.__validation_loss(val_data[0], val_data[1])
+            log.info(
+                'epoch %d: loss=%f, vloss=%f, best_vloss=%f',
+                epoch,
+                loss,
+                vloss,
+                best_vloss
+            )
+            log.info(
+                'epoch %d: patience: early_stop=%d, lr_reduce=%d',
+                epoch,
+                early_stopping_budget,
+                lr_reduce_budget
+            )
+
+            if cooldown > 0:
+                log.info('epoch %d: in cooldown', epoch)
+
+            # If the new lost is the best one, checkpoint the model
+            if vloss < best_vloss and save_path is not None:
+                self.save(save_path)
+                log.info('epoch %d: new best vloss=%f, model saved in %s',
+                         epoch,
+                         vloss,
+                         save_path
+                )
+
+            # If the new loss is significantly better, reset early
+            # stopping
+            if vloss < (best_vloss * improvement_threshold):
+                log.info(
+                    'epoch %d: vloss significantly better',
+                    epoch
+                )
+                early_stopping_budget = early_stopping_patience
+                lr_reduce_budget = lr_reduce_patience
+                cooldown = max(0, cooldown - 1)
+
+            else:
+                log.info(
+                    'epoch %d: vloss not significantly better',
+                    epoch
+                )
+
+                if cooldown == 0:
+                
+                    if early_stopping_budget == 0:
+                        log.info('epoch %d: early stopping', epoch)
+                        break
+                    else:
+                        early_stopping_budget = max(
+                            0,
+                            early_stopping_budget - 1
+                        )
+
+                    if lr_reduce_budget == 0:
+                        new_lr = self.lr * lr_reduce_factor
+                        log.info(
+                            'epoch %d: learning rate reduced from %f to %f',
+                            epoch,
+                            self.lr,
+                            new_lr
+                        )
+                        self.lr = new_lr
+                        cooldown = lr_reduce_cooldown
+                        lr_reduce_budget =  lr_reduce_patience
+                    else:
+                        lr_reduce_budget = max(
+                            0,
+                            lr_reduce_budget - 1
+                        )
+                else:
+                    cooldown = max(0, cooldown - 1)
+               
+            # Update the best loss and cooldown
+            best_vloss = min(best_vloss, vloss)
 
     def __run_training_epoch(self, X, Y):
         losses = []
+        for ibatch in self.__cache_generator(X, Y):
+            losses.append(self.__train_fun(ibatch, self.lr))
+            if log.isEnabledFor(logging.DEBUG):
+                # costly operation...
+                bound0 = ibatch * self.batch_size
+                bound1 = (ibatch + 1) * self.batch_size
+                x = self.X_cache.get_value()[bound0:bound1]
+                y = self.Y_cache.get_value()[bound0:bound1]
+                log.debug('xbatch: %s, ybatch: %s', str(x.shape), str(y.shape))
+        return np.mean(losses)
+    
+    def __validation_loss(self, Xv, Yv):
+        losses = []
+        for ibatch in self.__cache_generator(Xv, Yv, batch_size=self.cache_size[0]):
+            losses.append(self.__valid_fun(ibatch))
+        return np.mean(losses)
+
+    def __cache_generator(self, X, Y, batch_size=None):
+        if batch_size is None:
+            batch_size = self.batch_size
         for idx in grouper(range(X.shape[0]), self.cache_size[0]):
             idx_ = filter(lambda n: n is not None, idx)
             i0 = idx_[0]
             i1 = idx_[-1]
             self.X_cache.set_value(X[i0:i1])
             self.Y_cache.set_value(Y[i0:i1])
-            for ibatch in range(0, len(idx_)/self.batch_size):
-                losses.append(self.__train_fun(ibatch))
-                log.debug('ibatch=%d, i0=%d, i1=%d, loss=%f', ibatch, i0, i1, losses[-1])
-                if log.isEnabledFor(logging.DEBUG):
-                    # costly operation...
-                    bound0 = ibatch * self.batch_size
-                    bound1 = (ibatch + 1) * self.batch_size
-                    x = self.X_cache.get_value()[bound0:bound1]
-                    y = self.Y_cache.get_value()[bound0:bound1]
-                    log.debug('xbatch: %s, ybatch: %s', str(x.shape), str(y.shape))
-        return np.mean(losses)
+            bs = min(batch_size, len(idx_))
+            for ibatch in range(0, len(idx_)/bs):
+                yield ibatch
 
     def save(self, path):
         with gzip.open(path, 'wb') as savefile:
@@ -243,7 +359,14 @@ class Network(object):
         with gzip.open(path, 'rb') as savefile:
             return cPickle.load(savefile)
 
-    def __make_training_function(self, lr, momentum=0.0):
+    def __loss(self, X, Y):
+        loss = mse_loss(self.training_expression(X), Y)
+        for regl in [lyr.reg_loss() for lyr in self.layers]:
+            loss = loss + regl
+        return loss
+
+
+    def __make_training_function(self, momentum=0.0):
         nrows_cache = self.cache_size[0]
         ncols_X_cache = self.cache_size[1]
         ncols_Y_cache = self.cache_size[2]
@@ -259,6 +382,7 @@ class Network(object):
         # placeholders
         X = T.matrix('X')
         Y = T.matrix('Y')
+        lr = T.scalar()
 
         self.velocity = []
         for param in self.parameters:
@@ -268,9 +392,7 @@ class Network(object):
                 )
             )
 
-        loss = mse_loss(self.training_expression(X), Y)
-        for regl in [lyr.reg_loss() for lyr in self.layers]:
-            loss = loss + regl
+        loss = self.__loss(X, Y)
 
         gparams = [T.grad(loss, param) for param in self.parameters]
 
@@ -293,12 +415,12 @@ class Network(object):
         bound0 = index * self.batch_size
         bound1 = (index + 1) * self.batch_size
         return theano.function(
-            inputs=[index],
+            inputs=[index, lr],
             outputs=loss,
             updates=updates,
             givens={
                 X: self.X_cache[bound0:bound1],
-                Y: self.Y_cache[bound0:bound1]
+                Y: self.Y_cache[bound0:bound1],
             }
         )
 
@@ -309,4 +431,18 @@ class Network(object):
             outputs=self.expression(X)
         )
   
-
+    def __make_validation_function(self):
+        X = T.matrix()
+        Y = T.matrix()
+        index = T.lscalar()
+        bound0 = index * self.batch_size
+        bound1 = (index + 1) * self.batch_size
+        return theano.function(
+            inputs=[index],
+            outputs=self.__loss(X, Y),
+            givens={
+                X: self.X_cache[bound0:bound1],
+                Y: self.Y_cache[bound0:bound1]
+            }
+        )
+            

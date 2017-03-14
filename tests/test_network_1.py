@@ -5,12 +5,14 @@ import matplotlib
 matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import cPickle
+import theano.tensor as T
 
 logging.basicConfig(level='INFO')
 
 print '-> Generating the data'
 # random generator seed
-np.random.seed(750)
+seed=750
+np.random.seed(seed)
 # number of training points
 N_TRAIN = 100000
 # number of test points
@@ -22,34 +24,38 @@ def __gen_data(n):
     data = np.zeros((n,2), dtype='float32')
     data[:,0] = np.random.uniform(0, 2*np.pi, n)
     data[:,1] = np.sin(data[:,0]) + np.random.normal(scale=NOISE_STDDEV, size=n)
-    return data[:,0], data[:,1]
+    return np.atleast_2d(data[:,0]).T, np.atleast_2d(data[:,1]).T
 
 datax, datay = __gen_data(N_TRAIN)
 testx, testy  = __gen_data(N_TEST)
-
-datax = np.atleast_2d(datax).T
-datay = np.atleast_2d(datay).T
-testx = np.atleast_2d(testx).T
+validx, validy  = __gen_data(N_TEST)
 
 print '-> Building the model'
 
+rng = T.shared_randomstreams.RandomStreams(1991)
+
 mlp = network.Network()
 mlp.add(network.BatchNorm(1))
-mlp.add(network.Dropout(0.2))
-mlp.add(network.LinearTransformation((1, 200), l2=0.00001))
+mlp.add(network.LinearTransformation((1, 2000), l2=0.00000))
 mlp.add(network.ReLU())
-mlp.add(network.Dropout(0.5))
-mlp.add(network.BatchNorm(200))
-mlp.add(network.LinearTransformation((200, 200), l2=0.00001))
-mlp.add(network.ReLU())
-mlp.add(network.Dropout(0.5))
-mlp.add(network.LinearTransformation((200, 1), l2=0.0))
-mlp.compile(lr=0.01, momentum=0.5, batch_size=256, cache_size=(1000,1,1))
+mlp.add(network.Dropout(0.5, rng=rng))
+mlp.add(network.LinearTransformation((2000, 1), l2=0.00000))
+mlp.compile(lr=0.01, momentum=0.0, batch_size=64, cache_size=(1000,1,1))
 
 print '-> Training the model'
 
-mlp.train(datax, datay, 50)
-mlp.save('test_model_1.gz')
+mlp.train(
+    datax,
+    datay,
+    val_data=(validx, validy),
+    n_epochs=100,
+    early_stopping_patience=10,
+    improvement_threshold=0.999,
+    lr_reduce_factor=0.5,
+    lr_reduce_patience=5,
+    lr_reduce_cooldown=2,
+    save_path='test_model_1.gz',
+)
 
 print '-> Testing the model'
 
