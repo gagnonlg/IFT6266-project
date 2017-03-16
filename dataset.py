@@ -108,7 +108,7 @@ def load_image(path):
 
 def extract_patch(tensor, flatten):
     """ extract the center 32x32 patch from a 64x64 image """
-    patch = tensor[16:48, 16:48].flatten()
+    patch = tensor[16:48, 16:48]
     return patch.flatten() if flatten else patch
 
 
