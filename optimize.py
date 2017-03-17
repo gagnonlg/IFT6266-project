@@ -17,9 +17,9 @@ fmt = '[%(asctime)s] %(name)s %(levelname)s %(message)s'
 logging.basicConfig(level='INFO', format=fmt)
 
 #### some fixed parameters
-early_stopping_patience = 10
+early_stopping_patience = 100
 improvement_threshold = 0.999
-lr_reduce_cooldown = 2
+lr_reduce_cooldown = 5
 batch_size = 256
 
 #### pick hyperparameters
@@ -29,7 +29,7 @@ n_hidden_units = np.random.randint(200, 2000)
 n_hidden_layer = np.random.randint(2, 7)
 momentum = np.random.uniform(0, 1)
 batch_norm = np.random.choice([True, False])
-lr_reduce_patience = np.random.randint(3)
+lr_reduce_patience = np.random.randint(10)
 lr_reduce_factor = np.random.choice([1, np.random.uniform(0.1, 0.5)])
 dropout_visible = np.random.choice([True, False])
 dropout_hidden = np.random.choice([True, False])
