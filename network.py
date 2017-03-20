@@ -421,14 +421,16 @@ class Network(object):
             givens={
                 X: self.X_cache[bound0:bound1],
                 Y: self.Y_cache[bound0:bound1],
-            }
+            },
+            allow_input_downcast=True
         )
 
     def __make_test_function(self):
         X = T.matrix()
         return theano.function(
             inputs=[X],
-            outputs=self.expression(X)
+            outputs=self.expression(X),
+            allow_input_downcast=True
         )
   
     def __make_validation_function(self):
@@ -443,6 +445,7 @@ class Network(object):
             givens={
                 X: self.X_cache[bound0:bound1],
                 Y: self.Y_cache[bound0:bound1]
-            }
+            },
+            allow_input_downcast=True
         )
             
