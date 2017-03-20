@@ -64,9 +64,6 @@ for ((nin,nout), relu, batchn, drp) in zip(n_in_out, relu, batchnorm, dropout):
     if relu:
         netw.add(network.ReLU())
 
-netw.add(network.Sigmoid())
-netw.add(network.ScaleOffset(scale=255.0))
-
 netw.compile(
     lr=lr,
     momentum=momentum,
