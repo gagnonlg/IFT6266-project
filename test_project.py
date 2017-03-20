@@ -56,6 +56,7 @@ for i in range(1000):
     netw.train(
         X=h5dataset['train/input'],
         Y=h5dataset['train/target'],
+        val_data=(h5dataset['val/input'], h5dataset['val/target']),
         n_epochs=1,
         start_epoch=i
     )
