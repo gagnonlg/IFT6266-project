@@ -110,7 +110,7 @@ class LinearTransformation(Layer):
         )
 
         self.b = theano.shared(
-            value=np.zeros(n_out).astype('float32'),
+            value=np.full((n_out,), 0.1).astype('float32'),
         )
 
     def reg_loss(self):
