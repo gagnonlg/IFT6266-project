@@ -37,8 +37,6 @@ log.info('n_hidden_layer:%d', n_hidden_layer)
 log.info('momentum:%f', momentum)
 log.info('batch_norm:%d', batch_norm)
 log.info('batch_size:%d', batch_size)
-log.info('lr_reduce_patience:%d', lr_reduce_patience)
-log.info('lr_reduce_factor:%f', lr_reduce_factor)
 log.info('dropout_visible:%d', dropout_visible)
 log.info('dropout_hidden:%d', dropout_hidden)
 
