@@ -217,19 +217,8 @@ class Network(object):
               Y,
               val_data,
               n_epochs,
-              start_epoch=0,
-              early_stopping_patience=1,
-              improvement_threshold=1.0,
-              lr_reduce_factor=1.0,
-              lr_reduce_patience=1,
-              lr_reduce_cooldown=0.0,
-              save_path=None):
-
-        cooldown = 0
-        early_stopping_budget = early_stopping_patience
-        lr_reduce_budget = lr_reduce_patience
-        best_vloss = float('inf')
-        
+              start_epoch=0):
+  
         for epoch in range(start_epoch, start_epoch + n_epochs):
 
             # First, run the training for the current epoch
@@ -237,86 +226,17 @@ class Network(object):
 
             # Bail if the loss is NaN
             if np.isnan(loss):
-               log.error('loss is nan, aborting')
-               raise RuntimeError('Loss is NaN')
+                log.error('loss is nan, aborting')
+                raise RuntimeError('Loss is NaN')
 
             # Now, compute the validation loss
             vloss = self.__validation_loss(val_data[0], val_data[1])
             log.info(
-                'epoch %d: loss=%f, vloss=%f, best_vloss=%f',
+                'epoch %d: loss=%f, vloss=%f',
                 epoch,
                 loss,
                 vloss,
-                best_vloss
             )
-            log.info(
-                'epoch %d: patience: early_stop=%d, lr_reduce=%d',
-                epoch,
-                early_stopping_budget,
-                lr_reduce_budget
-            )
-
-            if cooldown > 0:
-                log.info('epoch %d: in cooldown', epoch)
-
-            # If the new lost is the best one, checkpoint the model
-            if vloss < best_vloss and save_path is not None:
-                self.save(save_path)
-                log.info('epoch %d: new best vloss=%f, model saved in %s',
-                         epoch,
-                         vloss,
-                         save_path
-                )
-
-            # If the new loss is significantly better, reset early
-            # stopping
-            if vloss < (best_vloss * improvement_threshold):
-                log.info(
-                    'epoch %d: vloss significantly better',
-                    epoch
-                )
-                early_stopping_budget = early_stopping_patience
-                lr_reduce_budget = lr_reduce_patience
-                cooldown = max(0, cooldown - 1)
-
-            else:
-                log.info(
-                    'epoch %d: vloss not significantly better',
-                    epoch
-                )
-
-                if cooldown == 0:
-                
-                    if early_stopping_budget == 0:
-                        log.info('epoch %d: early stopping', epoch)
-                        break
-                    else:
-                        early_stopping_budget = max(
-                            0,
-                            early_stopping_budget - 1
-                        )
-
-                    if lr_reduce_budget == 0:
-                        new_lr = self.lr * lr_reduce_factor
-                        log.info(
-                            'epoch %d: learning rate reduced from %f to %f',
-                            epoch,
-                            self.lr,
-                            new_lr
-                        )
-                        self.lr = new_lr
-                        cooldown = lr_reduce_cooldown
-                        lr_reduce_budget =  lr_reduce_patience
-                    else:
-                        lr_reduce_budget = max(
-                            0,
-                            lr_reduce_budget - 1
-                        )
-                else:
-                    cooldown = max(0, cooldown - 1)
-               
-            # Update the best loss and cooldown
-            best_vloss = min(best_vloss, vloss)
 
     def __run_training_epoch(self, X, Y):
         losses = []

@@ -17,9 +17,6 @@ fmt = '[%(asctime)s] %(name)s %(levelname)s %(message)s'
 logging.basicConfig(level='INFO', format=fmt)
 
 #### some fixed parameters
-early_stopping_patience = 100
-improvement_threshold = 0.999
-lr_reduce_cooldown = 5
 batch_size = 256
 
 #### pick hyperparameters
@@ -29,8 +26,6 @@ n_hidden_units = np.random.randint(200, 2000)
 n_hidden_layer = np.random.randint(2, 7)
 momentum = np.random.uniform(0, 1)
 batch_norm = np.random.choice([True, False])
-lr_reduce_patience = np.random.randint(10)
-lr_reduce_factor = np.random.choice([1, np.random.uniform(0.1, 0.5)])
 dropout_visible = np.random.choice([True, False])
 dropout_hidden = np.random.choice([True, False])
 
@@ -99,13 +94,9 @@ netw.train(
     Y=h5dataset['train/target'],
     val_data=(h5dataset['val/input'], h5dataset['val/target']),
     n_epochs=1000,
-    early_stopping_patience=early_stopping_patience,
-    improvement_threshold=improvement_threshold,
-    lr_reduce_factor=lr_reduce_factor,
-    lr_reduce_patience=lr_reduce_patience,
-    lr_reduce_cooldown=lr_reduce_cooldown,
-    save_path='model.gz'
 )
+
+netw.save('model.gz')
 
 subprocess.call(['cp', 'model.gz', imgdir])
 

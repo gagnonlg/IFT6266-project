@@ -49,13 +49,9 @@ mlp.train(
     datay,
     val_data=(validx, validy),
     n_epochs=100,
-    early_stopping_patience=10,
-    improvement_threshold=0.999,
-    lr_reduce_factor=0.5,
-    lr_reduce_patience=5,
-    lr_reduce_cooldown=2,
-    save_path='test_model_1.gz',
 )
+
+mlp.save('test_model_1.gz')
 
 print '-> Testing the model'
 
