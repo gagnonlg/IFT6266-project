@@ -44,10 +44,18 @@ for i, path in enumerate([dirpath + '/test_image_{}.jpg'.format(i) for i in rang
     entrs2[i] = sp.entropy(pp, ptgt)
     
     
-plt.plot(np.arange(1000.0), entrs, 'o')
-plt.plot(np.arange(1000.0), entrs2, 'o')
-plt.plot(entrs_a)
-plt.show()
+plt.plot(np.arange(1000.0), entrs, 'o', label='Q = border')
+plt.plot(np.arange(1000.0), entrs2, 'o', label='Q = target patch')
+#plt.plot(entrs_a)
+plt.xlabel('epoch')
+plt.ylabel('KL(generated | Q)')
+plt.legend(loc='best')
+#plt.show()
+plt.savefig('kl_vs_epoch.png')
+plt.close()
 
 plt.plot(np.arange(1000.0), dists, 'o')
-plt.show()
+plt.xlabel('epoch')
+plt.ylabel('||target - generated)||_2^2')
+#plt.show()
+plt.savefig('se_vs_epoch.png')

@@ -2,6 +2,7 @@ import logging
 import unittest
 import theano.tensor as T
 import theano
+import theano.tensor.signal.pool
 import numpy as np
 import os
 import h5py as h5
@@ -47,6 +48,59 @@ class Layer(object):
     def updates(self):
         return []
 
+class Flatten(Layer):
+
+    def expression(self, X):
+        return T.flatten(X, outdim=2)
+
+class Convolution(Layer):
+
+    def __init__(self, n_feature_maps, n_input_channels, height, width, l2=0.0, strides=(1,1)):
+        bound = n_input_channels * height * width
+        self.kernel = theano.shared(
+            np.random.uniform(
+                low=-bound,
+                high=bound,
+                size=(n_feature_maps, n_input_channels, height, width)
+            ).astype('float32')
+        )
+
+        # ne bias per output feature map
+        self.b = theano.shared(
+            np.full((n_feature_maps,), 0.1).astype('float32')
+        )
+            
+
+        self.l2 = l2
+        self.strides = strides
+
+    def expression(self, X):
+        # expected shape of input:
+        # (batch, channel, height, width) 
+        return T.nnet.conv2d(
+            X,
+            self.kernel,
+            border_mode='full',
+            subsample=self.strides
+        ) + self.b.dimshuffle('x', 0, 'x', 'x')
+
+    def parameters(self):
+        return [self.kernel, self.b]
+
+    def reg_loss(self):
+        return self.l2 * self.kernel.norm(2)
+
+class MaxPool(Layer):
+
+    def __init__(self, factors):
+        self.poolsize = factors
+
+    def expression(self, X):
+        return theano.tensor.signal.pool.pool_2d(
+            input=X,
+            ds=self.poolsize,
+            ignore_border=False,
+        )
 
 class Dropout(Layer):
     def __init__(self, drop_prob, rng=None):
@@ -133,6 +187,10 @@ class Sigmoid(Layer):
     def expression(self, X):
         return T.nnet.sigmoid(X)
 
+class Softmax(Layer):
+    def expression(self, X):
+        return T.nnet.softmax(X)
+
 
 class BatchNorm(Layer):
 
@@ -187,8 +245,11 @@ class Network(object):
         self.layers.append(layer)
         self.parameters += layer.parameters()
 
-    def compile(self, lr, momentum, batch_size, cache_size):
+    def compile(self, lr, momentum, batch_size, cache_size, vartype=(T.matrix, T.matrix)):
 
+        self.vartypeX = vartype[0]
+        self.vartypeY = vartype[1]
+        
         self.lr = lr
 
         self.batch_size = batch_size
@@ -288,20 +349,25 @@ class Network(object):
 
     def __make_training_function(self, momentum=0.0):
         nrows_cache = self.cache_size[0]
-        ncols_X_cache = self.cache_size[1]
-        ncols_Y_cache = self.cache_size[2]
-        
+        X_cache_size = self.cache_size[1]
+        Y_cache_size = self.cache_size[2]
+
+        if not type(X_cache_size) == tuple:
+            X_cache_size = (X_cache_size,)
+        if not type(Y_cache_size) == tuple:
+            Y_cache_size = (Y_cache_size,)
+            
         self.X_cache = theano.shared(
-            np.zeros((nrows_cache, ncols_X_cache)).astype('float32')
+            np.zeros((nrows_cache,) + X_cache_size).astype('float32')
         )
 
         self.Y_cache = theano.shared(
-            np.zeros((nrows_cache, ncols_Y_cache)).astype('float32')
+            np.zeros((nrows_cache,) + Y_cache_size).astype('float32')
         )
 
         # placeholders
-        X = T.matrix('X')
-        Y = T.matrix('Y')
+        X = self.vartypeX('X')
+        Y = self.vartypeY('Y')
         lr = T.scalar()
 
         self.velocity = []
@@ -346,7 +412,7 @@ class Network(object):
         )
 
     def __make_test_function(self):
-        X = T.matrix()
+        X = self.vartypeX()
         return theano.function(
             inputs=[X],
             outputs=self.expression(X),
@@ -354,8 +420,8 @@ class Network(object):
         )
   
     def __make_validation_function(self):
-        X = T.matrix()
-        Y = T.matrix()
+        X = self.vartypeX()
+        Y = self.vartypeY()
         index = T.lscalar()
         bound0 = index * self.batch_size
         bound1 = (index + 1) * self.batch_size
