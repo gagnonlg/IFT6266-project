@@ -2,6 +2,78 @@
 #+TITLE: IFT6266 project blog
 #+AUTHOR: Louis-Guillaume Gagnon
 
+* [2017-03-21 Tue 10:28] Status report
+A few things have changed since the last report.
+
+** Dropout
+
+I implemented a dropout layer, which can be found at
+https://github.com/gagnonlg/IFT6266-project/blob/master/network.py#L51. Following
+the obvious implementation, it uses a theano "shared_randomstream" to
+sample a binary mask for each input vector. The randomstream can be
+passed to the constructor such that we seed the generator only once
+for all layers.
+
+** Early stopping
+I tried to setup some early stopping mechanism, which monitors the
+training loss. Perhaps unsurprisingly, I didn't have much sucess at
+using this loss since it is not smooth at all. 
+
+To gain insights into this, I looked the behaviour of the squared
+distance between the generated and the target patch for one image in
+isolation as a function of the training epoch. 
+
+[[./se_vs_epoch.png]]
+
+Note that this is an image from the validation set.  We can see that
+it's not really a stable indication of the fit quality! It jumps
+around *a lot*, especially early in the fit where essentially randomly
+generated patches get better scores than later-on.
+
+For now, I've simply turned-off this early stopping while I look for a better 
+strategy. To mitigate the problem of the instability of the metric, maybe 
+using a moving average to smooth things out and using a burn-in time of 
+~ 100 epochs could work. 
+
+** Quantitative metric
+
+I also looked into alternative metrics to quantify the quality of the
+generated image, which as we all know is an interesting problem in
+itself.  We can see an image as a collection of pixels, which
+themselves can be viewed as instances of 256 different classes. In
+this view, it is possible to measure a probability distribution over
+pixel values for a given image. It is then possible to measure the
+Kullback-Liebler divergence (KL) between this distribution and another
+one.  KL measures (in a sense) how much 2 probability distribution
+differs. We can choose to compare the distribution from the generated image
+with the true image, or the distribution from the border.
+
+[[./kl_vs_epoch.png]]
+
+This measure jumps around also, which suggest that smoothing might be
+necessary, but it actually seems to be a good indication of the fit
+quality. Surprisingly this works as well when comparing with the true
+center patch or with the border, which suggest that unsupervised
+learning might be possible. Of course, minimizing this divergence only
+ensures that the pixels are sampled from the right distribution but it
+cannot build the required structure. It could be used as an
+unsupervised pre-training pass followd by a "traditionnal" supervised
+fine-tuning pass.
+
+** Output layer
+It occured to me that it might be a bad idea to use sigmoid
+activations at the last layer because they saturate and since I'm
+training with MSE loss, the training could be made more difficult by
+the vanishing gradient. I changed the last layer of my nominal model
+and trained with the same other hyperparamters. After 1000 epochs, 
+the training still has not converged:
+
+[[./test_image_20298.png]]
+
+This suggest that optimizing the hyperparameters is warranted. However,
+I won't spend time doing that now before at least implementing a convolutional
+layer (this is the next step!).
+
 * [2017-03-07 Tue 16:11] Introduction
 
 So I think it is about time I write an introductory post for my

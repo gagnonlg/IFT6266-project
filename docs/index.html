@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>IFT6266 project blog</title>
-<!-- 2017-03-07 Tue 16:43 -->
+<!-- 2017-03-21 Tue 11:00 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Louis-Guillaume Gagnon" />
@@ -143,13 +143,21 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#sec-1">1. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</a>
+<li><a href="#sec-1">1. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-21 Tue 10:28]</span></span> Status report</a>
 <ul>
-<li><a href="#sec-1-1">1.1. The Code</a></li>
-<li><a href="#sec-1-2">1.2. Validation</a></li>
-<li><a href="#sec-1-3">1.3. Baseline model</a></li>
-<li><a href="#sec-1-4">1.4. Next step</a></li>
-<li><a href="#sec-1-5">1.5. Note: Setting up the code on the hades cluster</a></li>
+<li><a href="#sec-1-1">1.1. Dropout</a></li>
+<li><a href="#sec-1-2">1.2. Early stopping</a></li>
+<li><a href="#sec-1-3">1.3. Quantitative metric</a></li>
+<li><a href="#sec-1-4">1.4. Output layer</a></li>
+</ul>
+</li>
+<li><a href="#sec-2">2. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</a>
+<ul>
+<li><a href="#sec-2-1">2.1. The Code</a></li>
+<li><a href="#sec-2-2">2.2. Validation</a></li>
+<li><a href="#sec-2-3">2.3. Baseline model</a></li>
+<li><a href="#sec-2-4">2.4. Next step</a></li>
+<li><a href="#sec-2-5">2.5. Note: Setting up the code on the hades cluster</a></li>
 </ul>
 </li>
 </ul>
@@ -157,8 +165,130 @@ for the JavaScript code in this tag.
 </div>
 
 <div id="outline-container-sec-1" class="outline-2">
-<h2 id="sec-1"><span class="section-number-2">1</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</h2>
+<h2 id="sec-1"><span class="section-number-2">1</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-21 Tue 10:28]</span></span> Status report</h2>
 <div class="outline-text-2" id="text-1">
+<p>
+A few things have changed since the last report.
+</p>
+</div>
+
+<div id="outline-container-sec-1-1" class="outline-3">
+<h3 id="sec-1-1"><span class="section-number-3">1.1</span> Dropout</h3>
+<div class="outline-text-3" id="text-1-1">
+<p>
+I implemented a dropout layer, which can be found at
+<a href="https://github.com/gagnonlg/IFT6266-project/blob/master/network.py#L51">https://github.com/gagnonlg/IFT6266-project/blob/master/network.py#L51</a>. Following
+the obvious implementation, it uses a theano "shared<sub>randomstream</sub>" to
+sample a binary mask for each input vector. The randomstream can be
+passed to the constructor such that we seed the generator only once
+for all layers.
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-1-2" class="outline-3">
+<h3 id="sec-1-2"><span class="section-number-3">1.2</span> Early stopping</h3>
+<div class="outline-text-3" id="text-1-2">
+<p>
+I tried to setup some early stopping mechanism, which monitors the
+training loss. Perhaps unsurprisingly, I didn't have much sucess at
+using this loss since it is not smooth at all. 
+</p>
+
+<p>
+To gain insights into this, I looked the behaviour of the squared
+distance between the generated and the target patch for one image in
+isolation as a function of the training epoch. 
+</p>
+
+
+<div class="figure">
+<p><img src="./se_vs_epoch.png" alt="se_vs_epoch.png" />
+</p>
+</div>
+
+<p>
+Note that this is an image from the validation set.  We can see that
+it's not really a stable indication of the fit quality! It jumps
+around <b>a lot</b>, especially early in the fit where essentially randomly
+generated patches get better scores than later-on.
+</p>
+
+<p>
+For now, I've simply turned-off this early stopping while I look for a better 
+strategy. To mitigate the problem of the instability of the metric, maybe 
+using a moving average to smooth things out and using a burn-in time of 
+~ 100 epochs could work. 
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-1-3" class="outline-3">
+<h3 id="sec-1-3"><span class="section-number-3">1.3</span> Quantitative metric</h3>
+<div class="outline-text-3" id="text-1-3">
+<p>
+I also looked into alternative metrics to quantify the quality of the
+generated image, which as we all know is an interesting problem in
+itself.  We can see an image as a collection of pixels, which
+themselves can be viewed as instances of 256 different classes. In
+this view, it is possible to measure a probability distribution over
+pixel values for a given image. It is then possible to measure the
+Kullback-Liebler divergence (KL) between this distribution and another
+one.  KL measures (in a sense) how much 2 probability distribution
+differs. We can choose to compare the distribution from the generated image
+with the true image, or the distribution from the border.
+</p>
+
+
+<div class="figure">
+<p><img src="./kl_vs_epoch.png" alt="kl_vs_epoch.png" />
+</p>
+</div>
+
+<p>
+This measure jumps around also, which suggest that smoothing might be
+necessary, but it actually seems to be a good indication of the fit
+quality. Surprisingly this works as well when comparing with the true
+center patch or with the border, which suggest that unsupervised
+learning might be possible. Of course, minimizing this divergence only
+ensures that the pixels are sampled from the right distribution but it
+cannot build the required structure. It could be used as an
+unsupervised pre-training pass followd by a "traditionnal" supervised
+fine-tuning pass.
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-1-4" class="outline-3">
+<h3 id="sec-1-4"><span class="section-number-3">1.4</span> Output layer</h3>
+<div class="outline-text-3" id="text-1-4">
+<p>
+It occured to me that it might be a bad idea to use sigmoid
+activations at the last layer because they saturate and since I'm
+training with MSE loss, the training could be made more difficult by
+the vanishing gradient. I changed the last layer of my nominal model
+and trained with the same other hyperparamters. After 1000 epochs, 
+the training still has not converged:
+</p>
+
+
+<div class="figure">
+<p><img src="./test_image_20298.png" alt="test_image_20298.png" />
+</p>
+</div>
+
+<p>
+This suggest that optimizing the hyperparameters is warranted. However,
+I won't spend time doing that now before at least implementing a convolutional
+layer (this is the next step!).
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-sec-2" class="outline-2">
+<h2 id="sec-2"><span class="section-number-2">2</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</h2>
+<div class="outline-text-2" id="text-2">
 <p>
 So I think it is about time I write an introductory post for my
 IFT6266 project blog. 
@@ -173,9 +303,9 @@ theano which I'm not really used to (mainly used Keras in the past).
 </p>
 </div>
 
-<div id="outline-container-sec-1-1" class="outline-3">
-<h3 id="sec-1-1"><span class="section-number-3">1.1</span> The Code</h3>
-<div class="outline-text-3" id="text-1-1">
+<div id="outline-container-sec-2-1" class="outline-3">
+<h3 id="sec-2-1"><span class="section-number-3">2.1</span> The Code</h3>
+<div class="outline-text-3" id="text-2-1">
 <p>
 The code can be found on github:
 <a href="https://github.com/gagnonlg/IFT6266-project">https://github.com/gagnonlg/IFT6266-project</a>. Mainly of interest is the
@@ -238,9 +368,9 @@ the training.
 </div>
 </div>
 
-<div id="outline-container-sec-1-2" class="outline-3">
-<h3 id="sec-1-2"><span class="section-number-3">1.2</span> Validation</h3>
-<div class="outline-text-3" id="text-1-2">
+<div id="outline-container-sec-2-2" class="outline-3">
+<h3 id="sec-2-2"><span class="section-number-3">2.2</span> Validation</h3>
+<div class="outline-text-3" id="text-2-2">
 <p>
 In my experience, it helps a lot to have a simple benchmark problem on
 which good results are easy to attain fast, in order to validate that
@@ -260,9 +390,9 @@ performance is obtained after only 10 epochs:
 </div>
 </div>
 
-<div id="outline-container-sec-1-3" class="outline-3">
-<h3 id="sec-1-3"><span class="section-number-3">1.3</span> Baseline model</h3>
-<div class="outline-text-3" id="text-1-3">
+<div id="outline-container-sec-2-3" class="outline-3">
+<h3 id="sec-2-3"><span class="section-number-3">2.3</span> Baseline model</h3>
+<div class="outline-text-3" id="text-2-3">
 <p>
 My baseline model for the inpainting problem is a simple 3-layer
 densely connected MLP with 1000 units per layer, batch normalization,
@@ -290,9 +420,9 @@ slowly.
 </div>
 </div>
 
-<div id="outline-container-sec-1-4" class="outline-3">
-<h3 id="sec-1-4"><span class="section-number-3">1.4</span> Next step</h3>
-<div class="outline-text-3" id="text-1-4">
+<div id="outline-container-sec-2-4" class="outline-3">
+<h3 id="sec-2-4"><span class="section-number-3">2.4</span> Next step</h3>
+<div class="outline-text-3" id="text-2-4">
 <p>
 The obvious next step is to implement a convolutionnal layer which I
 hope will help achieve better performance.
@@ -300,9 +430,9 @@ hope will help achieve better performance.
 </div>
 </div>
 
-<div id="outline-container-sec-1-5" class="outline-3">
-<h3 id="sec-1-5"><span class="section-number-3">1.5</span> Note: Setting up the code on the hades cluster</h3>
-<div class="outline-text-3" id="text-1-5">
+<div id="outline-container-sec-2-5" class="outline-3">
+<h3 id="sec-2-5"><span class="section-number-3">2.5</span> Note: Setting up the code on the hades cluster</h3>
+<div class="outline-text-3" id="text-2-5">
 <p>
 I tried working with the module system but it seemed like a real pain
 to get a consistent environment setup for all the packages I needed so
@@ -315,7 +445,7 @@ year's IFT6266 course: <a href="https://ift6266.github.io/2016/02/19/install_the
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Louis-Guillaume Gagnon</p>
-<p class="date">Created: 2017-03-07 Tue 16:43</p>
+<p class="date">Created: 2017-03-21 Tue 11:00</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.1.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
