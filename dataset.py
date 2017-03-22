@@ -199,7 +199,7 @@ def reconstruct_from_flat(border, patch):
 
 def reconstruct_from_unflat(masked, patch):
     """ reconstruct image from flattened border and patch """
-    tensor = np.array(masked, copy=True)
+    tensor = np.array(np.transpose(masked, (1, 2, 0)), copy=True)
     tensor[16:48, 16:48] = np.transpose(patch, (1, 2, 0))
     return tensor
 
