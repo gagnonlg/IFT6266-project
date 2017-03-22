@@ -4,6 +4,7 @@ import gzip
 import cPickle as pickle
 import numpy as np
 import logging
+import os
 
 logging.basicConfig(level='DEBUG')
 
@@ -15,7 +16,10 @@ def onehot_mnist(x):
 
 # data
 print "-> Loading data..."
-with gzip.open('tests/mnist.pkl.gz', 'rb') as f:
+path = os.getenv('MNIST')
+if path is None:
+    path = 'tests/mnist.pkl.gz'
+with gzip.open(path, 'rb') as f:
     train_set, valid_set, test_set = pickle.load(f)
 
     tr_x = train_set[0].astype('float32')
@@ -67,19 +71,24 @@ conv.compile(
     vartype=(T.tensor4, T.matrix)
 )
 
-# print '-> Training network...'
-# conv.train(
-#     X=train_set[0].reshape((train_set[0].shape[0], 1, 28, 28)),
-#     Y=train_set[1],
-#     val_data=(valid_set[0].reshape((valid_set[0].shape[0], 1, 28, 28)), valid_set[1]),
-#     n_epochs=1
-# )
+print '-> Training network...'
 
+def test():
+    xtest = test_set[0].reshape((test_set[0].shape[0],1,28,28))
+    test_out = np.argmax(conv(xtest), axis=1)
+    good = np.count_nonzero(test_out == np.argmax(test_set[1], axis=1))
+    acc = float(good) / test_set[0].shape[0]
+    print 'accuracy: {}'.format(acc)
 
-print '-> Testing network...'
-xtest = test_set[0].reshape((test_set[0].shape[0],1,28,28))
-test_out = np.argmax(conv(xtest), axis=1)
-good = np.count_nonzero(test_out == np.argmax(test_set[1], axis=1))
-acc = float(good) / test_set[0].shape[0]
-print 'accuracy: {}'.format(acc)
+test()
 
+for i in range(1):
+    
+    conv.train(
+        X=train_set[0].reshape((train_set[0].shape[0], 1, 28, 28)),
+        Y=train_set[1],
+        val_data=(valid_set[0].reshape((valid_set[0].shape[0], 1, 28, 28)), valid_set[1]),
+        n_epochs=1
+    )
+
+    test()
