@@ -82,7 +82,7 @@ def test():
 
 test()
 
-for i in range(1):
+for i in range(100):
     
     conv.train(
         X=train_set[0].reshape((train_set[0].shape[0], 1, 28, 28)),
