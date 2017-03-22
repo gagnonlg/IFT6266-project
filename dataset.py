@@ -35,7 +35,49 @@ def generate_flattened(datadir):
         img = load_image(path)
         yield get_flattened_example(img)
 
+
 def create_mlp_dataset(dataset_path, output_path):
+    dataset_path = retrieve()
+
+    def __create(dset, h5file):
+        
+        x_maxshape = (None,) + ((64*64 - 32*32) * 3,)
+        y_maxshape = (None,) + (32*32 * 3,)
+        
+        x_dset = outf.create_dataset(
+            name=(dset+'/input'),
+            shape=(1, x_maxshape[1]),
+            maxshape=x_maxshape,
+            compression='lzf',
+        )
+        y_dset = outf.create_dataset(
+            name=(dset+'/target'),
+            shape=(1, y_maxshape[1]),
+            maxshape=y_maxshape,
+            compression='lzf',
+        )
+
+        gen = generate_flattened('{}/{}2014'.format(dataset_path, dset))
+        x, y = gen.next()
+        x_dset[:] = x
+        y_dset[:] = y
+        count = 1
+
+        for x,y in gen:
+            x_dset.resize(count + 1, axis=0)
+            y_dset.resize(count + 1, axis=0)
+            x_dset[count:] = x
+            y_dset[count:] = y
+            count += 1
+            if count % 100 == 0:
+                print count
+
+    with h5.File(output_path, 'w') as outf:
+        __create('train', outf)
+        __create('val', outf)
+
+
+def create_conv_dataset(dataset_path, output_path):
     dataset_path = retrieve()
 
     def __create(dset, h5file):
@@ -81,46 +123,6 @@ def generate_unflattened(datadir):
         img = load_image(path)
         yield get_unflattened_example(img)
 
-
-def create_conv_dataset(dataset_path, output_path):
-    dataset_path = retrieve()
-
-    def __create(dset, h5file):
-        
-        x_maxshape = (None,) + ((64*64 - 32*32) * 3,)
-        y_maxshape = (None,) + (32*32 * 3,)
-        
-        x_dset = outf.create_dataset(
-            name=(dset+'/input'),
-            shape=(1, x_maxshape[1]),
-            maxshape=x_maxshape,
-            compression='lzf',
-        )
-        y_dset = outf.create_dataset(
-            name=(dset+'/target'),
-            shape=(1, y_maxshape[1]),
-            maxshape=y_maxshape,
-            compression='lzf',
-        )
-
-        gen = generate_flattened('{}/{}2014'.format(dataset_path, dset))
-        x, y = gen.next()
-        x_dset[:] = x
-        y_dset[:] = y
-        count = 1
-
-        for x,y in gen:
-            x_dset.resize(count + 1, axis=0)
-            y_dset.resize(count + 1, axis=0)
-            x_dset[count:] = x
-            y_dset[count:] = y
-            count += 1
-            if count % 100 == 0:
-                print count
-
-    with h5.File(output_path, 'w') as outf:
-        __create('train', outf)
-        __create('val', outf)
 
 
 #####
@@ -171,25 +173,18 @@ def extract_border(tensor):
 def mask_patch(tensor):
     """ extract the border around a  32x32 patch from a 64x64 image """
     maskd = np.array(tensor, copy=True)
-    # maskd 
-    border_a = tensor[0:16, 0:48].flatten()
-    border_b = tensor[16:64, 0:16].flatten()
-    border_c = tensor[48:64, 16:64].flatten()
-    border_d = tensor[0:48, 48:64].flatten()
-    return np.append(border_a, [border_b, border_c, border_d])
-
-
+    maskd[16:48, 16:48] = 0
+    return maskd
 
 def get_flattened_example(tensor):
     """ get flattened input tuple, suitable for an mlp """
     return extract_border(tensor), extract_patch(tensor, flatten=True)
 
-
 def get_unflattened_example(tensor):
     """ get flattened input tuple, suitable for an mlp """
-    masked = mask_patch(tensor).reshape(3, 64, 64)
-    patch = extract_patch(tensor, flatten=False).reshape(3, 32, 32)
-    return masked, patch
+    masked = mask_patch(tensor)
+    patch = extract_patch(tensor, flatten=False)
+    return np.transpose(masked, (2,0,1)), np.transpose(patch, (2, 0, 1))
 
 def reconstruct_from_flat(border, patch):
     """ reconstruct image from flattened border and patch """
@@ -200,6 +195,12 @@ def reconstruct_from_flat(border, patch):
     tensor[16:64, 0:16] = border[bdim:bdim*2].reshape((48, 16, 3))
     tensor[48:64, 16:64] = border[bdim*2:bdim*3].reshape((16, 48, 3))
     tensor[0:48, 48:64] = border[bdim*3:bdim*4].reshape((48, 16, 3))
+    return tensor
+
+def reconstruct_from_unflat(masked, patch):
+    """ reconstruct image from flattened border and patch """
+    tensor = np.array(masked, copy=True)
+    tensor[16:48, 16:48] = np.transpose(patch, (1, 2, 0))
     return tensor
 
 
