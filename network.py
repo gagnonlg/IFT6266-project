@@ -24,6 +24,9 @@ def grouper(iterable, n, fillvalue=None):
 def mse_loss(xmatrix, ymatrix):
     return T.mean(T.pow(xmatrix - ymatrix, 2).sum(axis=1))
 
+def categorical_crossentropy_loss(xmatrix, ymatrix):
+    return T.mean(T.nnet.categorical_crossentropy(xmatrix, ymatrix))
+
 ########################################################################
 # LAYERS
 
@@ -55,7 +58,15 @@ class Flatten(Layer):
 
 class Convolution(Layer):
 
-    def __init__(self, n_feature_maps, n_input_channels, height, width, l2=0.0, strides=(1,1)):
+    def __init__(self,
+                 n_feature_maps,
+                 n_input_channels,
+                 height,
+                 width,
+                 l2=0.0,
+                 strides=(1,1),
+                 border_mode='full'):
+        self.border_mode = border_mode
         bound = n_input_channels * height * width
         self.kernel = theano.shared(
             np.random.uniform(
@@ -80,7 +91,7 @@ class Convolution(Layer):
         return T.nnet.conv2d(
             X,
             self.kernel,
-            border_mode='full',
+            border_mode=self.border_mode,
             subsample=self.strides
         ) + self.b.dimshuffle('x', 0, 'x', 'x')
 
@@ -182,6 +193,9 @@ class ReLU(Layer):
     def expression(self, X):
         return T.nnet.relu(X)
 
+class Tanh(Layer):
+    def expression(self, X):
+        return T.tanh(X)
 
 class Sigmoid(Layer):
     def expression(self, X):
@@ -245,7 +259,15 @@ class Network(object):
         self.layers.append(layer)
         self.parameters += layer.parameters()
 
-    def compile(self, lr, momentum, batch_size, cache_size, vartype=(T.matrix, T.matrix)):
+    def compile(self,
+                lr,
+                momentum,
+                batch_size,
+                cache_size,
+                vartype=(T.matrix, T.matrix),
+                loss=mse_loss):
+
+        self.loss = loss
 
         self.vartypeX = vartype[0]
         self.vartypeY = vartype[1]
@@ -341,7 +363,7 @@ class Network(object):
             return cPickle.load(savefile)
 
     def __loss(self, X, Y):
-        loss = mse_loss(self.training_expression(X), Y)
+        loss = self.loss(self.training_expression(X), Y)
         for regl in [lyr.reg_loss() for lyr in self.layers]:
             loss = loss + regl
         return loss
