@@ -183,8 +183,8 @@ def get_flattened_example(tensor):
 def get_unflattened_example(tensor):
     """ get flattened input tuple, suitable for an mlp """
     masked = mask_patch(tensor)
-    patch = extract_patch(tensor, flatten=False)
-    return np.transpose(masked, (2,0,1)), np.transpose(patch, (2, 0, 1))
+    patch = extract_patch(tensor, flatten=True)
+    return np.transpose(masked, (2,0,1)), patch
 
 def reconstruct_from_flat(border, patch):
     """ reconstruct image from flattened border and patch """
@@ -200,7 +200,7 @@ def reconstruct_from_flat(border, patch):
 def reconstruct_from_unflat(masked, patch):
     """ reconstruct image from flattened border and patch """
     tensor = np.array(np.transpose(masked, (1, 2, 0)), copy=True)
-    tensor[16:48, 16:48] = np.transpose(patch, (1, 2, 0))
+    tensor[16:48, 16:48] = patch.reshape((32, 32, 3))
     return tensor
 
 
