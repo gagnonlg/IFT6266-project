@@ -24,8 +24,8 @@ def grouper(iterable, n, fillvalue=None):
 def mse_loss(xmatrix, ymatrix):
     return T.mean(T.pow(xmatrix - ymatrix, 2).sum(axis=1))
 
-def categorical_crossentropy_loss(xmatrix, ymatrix):
-    return T.mean(T.nnet.categorical_crossentropy(xmatrix, ymatrix))
+def negative_log_likelihood_loss(x, y):
+    return -T.mean(T.log(x)[T.arange(y.shape[0]), T.argmax(y, axis=1)])
 
 ########################################################################
 # LAYERS
@@ -66,13 +66,14 @@ class Convolution(Layer):
                  l2=0.0,
                  strides=(1,1),
                  border_mode='full'):
+        self.filter_shape = (n_feature_maps, n_input_channels, height, width)
         self.border_mode = border_mode
         bound = n_input_channels * height * width
         self.kernel = theano.shared(
             np.random.uniform(
                 low=-bound,
                 high=bound,
-                size=(n_feature_maps, n_input_channels, height, width)
+                size=self.filter_shape
             ).astype('float32')
         )
 
@@ -91,6 +92,7 @@ class Convolution(Layer):
         return T.nnet.conv2d(
             X,
             self.kernel,
+            filter_shape=self.filter_shape,
             border_mode=self.border_mode,
             subsample=self.strides
         ) + self.b.dimshuffle('x', 0, 'x', 'x')
@@ -103,14 +105,15 @@ class Convolution(Layer):
 
 class MaxPool(Layer):
 
-    def __init__(self, factors):
+    def __init__(self, factors, ignore_border=False):
+        self.ignore_border = ignore_border
         self.poolsize = factors
 
     def expression(self, X):
         return theano.tensor.signal.pool.pool_2d(
             input=X,
             ds=self.poolsize,
-            ignore_border=False,
+            ignore_border=self.ignore_border,
         )
 
 class Dropout(Layer):

@@ -43,16 +43,16 @@ conv = network.Network()
 # input shape - filter shape + 1 = 28 - 5 + 1 = 24
 # subsample by 2 => 20 12x12 maps
 conv.add(network.Convolution(20, 1, 5, 5, border_mode='valid')) 
-conv.add(network.MaxPool((2,2))) # output (batch, 20, 16, 16)
-conv.add(network.ReLU())
+conv.add(network.MaxPool((2,2), ignore_border=True)) # output (batch, 20, 16, 16)
+conv.add(network.Tanh())
 
 
 # convolve into 50 maps of size
 # input shape - filter shape + 1 = 12 - 5 + 1 = 8
 # subsample by 2 => 50 4x4 maps
 conv.add(network.Convolution(50, 20, 5, 5, border_mode='valid'))
-conv.add(network.MaxPool((2,2)))
-conv.add(network.ReLU())
+conv.add(network.MaxPool((2,2), ignore_border=True))
+conv.add(network.Tanh())
 
 # flatten into (batch_size, 50 * 10 * 10) = (batch_size, 5000)
 conv.add(network.Flatten())
@@ -69,7 +69,7 @@ conv.compile(
     batch_size=500,
     cache_size=(2000, (1, 28, 28), (10,)),
     vartype=(T.tensor4, T.matrix),
-    loss=network.categorical_crossentropy_loss
+    loss=network.negative_log_likelihood_loss
 )
 
 print '-> Training network...'
