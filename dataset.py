@@ -77,7 +77,8 @@ def create_mlp_dataset(dataset_path, output_path):
         __create('val', outf)
 
 
-def create_conv_dataset(dataset_path, output_path):
+def create_conv_dataset(output_path):
+
     dataset_path = retrieve()
 
     def __create(dset, h5file):
@@ -132,6 +133,10 @@ def retrieve():
 
     Returns: path to dataset directory
     """
+
+    if 'DATAPATH' in os.environ:
+        return os.environ['DATAPATH']
+    
     local_path = os.path.basename(URL)
     uncompressed = local_path.replace('.tar.bz2', '')
 
