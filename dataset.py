@@ -84,7 +84,7 @@ def create_conv_dataset(output_path):
     def __create(dset, h5file):
         
         x_maxshape = (None, 3, 64, 64)
-        y_maxshape = (None, 3, 32, 32)
+        y_maxshape = (None, 3 * 32 * 32)
         
         x_dset = outf.create_dataset(
             name=(dset+'/input'),
