@@ -5,11 +5,13 @@ import subprocess
 import h5py as h5
 import PIL.Image
 import numpy as np
+import theano.tensor as T
 
 import dataset
 import network
 
 fmt = '[%(asctime)s] %(name)s %(levelname)s %(message)s'
+#logging.basicConfig(level='DEBUG', format=fmt)
 logging.basicConfig(level='INFO', format=fmt)
 log = logging.getLogger('test_project')
 
@@ -17,20 +19,19 @@ conv = network.Network()
 # convolve into 20 maps of size
 # input shape - filter shape + 1 = 64 - 5 + 1 = 60
 # subsample by 2 => 20 30x30 maps
-conv.add(network.Convolution(20, 1, 5, 5, border_mode='valid')) 
+conv.add(network.Convolution(20, 3, 5, 5, border_mode='valid')) 
 conv.add(network.MaxPool((2,2), ignore_border=True)) # output (batch, 20, 16, 16)
 conv.add(network.Tanh())
 # convolve into 50 maps of size
 # input shape - filter shape + 1 = 30 - 5 + 1 = 26
 # subsample by 2 => 50 13x13 maps
-# ignore border: 50 12x12 maps
 conv.add(network.Convolution(50, 20, 5, 5, border_mode='valid'))
 conv.add(network.MaxPool((2,2), ignore_border=True))
 conv.add(network.Tanh())
-# flatten into (batch_size, 50 * 12 * 12) = (7200, 5000)
+# flatten into (batch_size, 50 * 13 * 13)
 conv.add(network.Flatten())
 # Fully connected layers
-conv.add(network.LinearTransformation((50*12*12, 1000)))
+conv.add(network.LinearTransformation((50*13*13, 1000)))
 conv.add(network.Tanh())
 conv.add(network.LinearTransformation((1000, 32*32*3)))
 
@@ -56,6 +57,8 @@ imgdir = '{}/test_images/{}'.format(os.getenv('HOME'), os.path.basename(os.geten
 subprocess.call(['mkdir', '-p', imgdir])
 
 for i in range(1000):
+    log.debug('xt.shape: %s', str(xt.shape))
+    log.debug('xt[np.newaxis,:].shape: %s', str(xt[np.newaxis,:].shape))
     b = conv(xt[np.newaxis, :])
     img = dataset.reconstruct_from_unflat(xt, b[0])
     PIL.Image.fromarray(img.astype(np.uint8)).save('test_image_{}.jpg'.format(i))
