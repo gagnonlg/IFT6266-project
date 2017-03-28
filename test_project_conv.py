@@ -38,8 +38,8 @@ conv.add(network.LinearTransformation((1000, 32*32*3)))
 conv.compile(
     lr=0.0000001,
     momentum=0.5,
-    batch_size=1000,
-    cache_size=(10000, (3, 64, 64), (32*32*3,)),
+    batch_size=256,
+    cache_size=(2560, (3, 64, 64), (32*32*3,)),
     vartype=(T.tensor4, T.matrix),
 )
 
