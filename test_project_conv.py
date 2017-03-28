@@ -57,7 +57,7 @@ subprocess.call(['mkdir', '-p', imgdir])
 
 for i in range(1000):
     b = conv(xt[np.newaxis, :])
-    img = dataset.reconstruct_from_flat(xt, b[0])
+    img = dataset.reconstruct_from_unflat(xt, b[0])
     PIL.Image.fromarray(img.astype(np.uint8)).save('test_image_{}.jpg'.format(i))
     subprocess.call(['cp', 'test_image_{}.jpg'.format(i), imgdir])
     log.info('epoch %d', i)

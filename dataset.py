@@ -186,7 +186,7 @@ def get_flattened_example(tensor):
     return extract_border(tensor), extract_patch(tensor, flatten=True)
 
 def get_unflattened_example(tensor):
-    """ get flattened input tuple, suitable for an mlp """
+    """ get unflattened input tuple, suitable for a convnet """
     masked = mask_patch(tensor)
     patch = extract_patch(tensor, flatten=True)
     return np.transpose(masked, (2,0,1)), patch
