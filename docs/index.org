@@ -1,6 +1,36 @@
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="style1.css" />
 #+TITLE: IFT6266 project blog
 #+AUTHOR: Louis-Guillaume Gagnon
+* [2017-03-29 Wed 10:34] Status report: convolutions!
+The main change since my last report is that convolutional and pooling
+layers are now implemented. This ended up being more straightforward
+than I anticipated, using theano's conv2d and pool2d operations.
+
+As usual, it is important to cross-check that my implementation is
+working as intended. To do so, I've implemented the LeNet-inspired
+network from deeplearning.net/tutorial/lenet.html and ran it on mnist.
+
+[[./lenet_loss.png]] [[./lenet_acc.png]]
+
+Excellent! Then, I tried a long shot: blindly adapting the input and
+output of that model to solve our image generation task. After 200
+epoch, we have something like:
+
+[[./test_image_longshot.jpg]]
+
+Which is underwhelming, to say the least. Oh well! As I've said, it
+was a long shot.
+
+** Next steps
+
+I am currently in the process of implementing a recurrent layer such
+that I can use the captions. I first idea I'd like to try is to train
+some sort of auto-encoder on the captions to learn some useful
+representation that could be fed to a downstream model. I'm curious to
+see how much it would help.
+
+After that layer is implemented, it would be worthwhile start
+optimizing and trying more involved models such as GANs.
 
 * [2017-03-21 Tue 10:28] Status report
 A few things have changed since the last report.

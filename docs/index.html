@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>IFT6266 project blog</title>
-<!-- 2017-03-21 Tue 11:00 -->
+<!-- 2017-03-29 Wed 10:51 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Louis-Guillaume Gagnon" />
@@ -143,38 +143,98 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#sec-1">1. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-21 Tue 10:28]</span></span> Status report</a>
+<li><a href="#sec-1">1. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-29 Wed 10:34]</span></span> Status report: convolutions!</a>
 <ul>
-<li><a href="#sec-1-1">1.1. Dropout</a></li>
-<li><a href="#sec-1-2">1.2. Early stopping</a></li>
-<li><a href="#sec-1-3">1.3. Quantitative metric</a></li>
-<li><a href="#sec-1-4">1.4. Output layer</a></li>
+<li><a href="#sec-1-1">1.1. Next steps</a></li>
 </ul>
 </li>
-<li><a href="#sec-2">2. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</a>
+<li><a href="#sec-2">2. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-21 Tue 10:28]</span></span> Status report</a>
 <ul>
-<li><a href="#sec-2-1">2.1. The Code</a></li>
-<li><a href="#sec-2-2">2.2. Validation</a></li>
-<li><a href="#sec-2-3">2.3. Baseline model</a></li>
-<li><a href="#sec-2-4">2.4. Next step</a></li>
-<li><a href="#sec-2-5">2.5. Note: Setting up the code on the hades cluster</a></li>
+<li><a href="#sec-2-1">2.1. Dropout</a></li>
+<li><a href="#sec-2-2">2.2. Early stopping</a></li>
+<li><a href="#sec-2-3">2.3. Quantitative metric</a></li>
+<li><a href="#sec-2-4">2.4. Output layer</a></li>
+</ul>
+</li>
+<li><a href="#sec-3">3. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</a>
+<ul>
+<li><a href="#sec-3-1">3.1. The Code</a></li>
+<li><a href="#sec-3-2">3.2. Validation</a></li>
+<li><a href="#sec-3-3">3.3. Baseline model</a></li>
+<li><a href="#sec-3-4">3.4. Next step</a></li>
+<li><a href="#sec-3-5">3.5. Note: Setting up the code on the hades cluster</a></li>
 </ul>
 </li>
 </ul>
+</div>
+</div>
+<div id="outline-container-sec-1" class="outline-2">
+<h2 id="sec-1"><span class="section-number-2">1</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-29 Wed 10:34]</span></span> Status report: convolutions!</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+The main change since my last report is that convolutional and pooling
+layers are now implemented. This ended up being more straightforward
+than I anticipated, using theano's conv2d and pool2d operations.
+</p>
+
+<p>
+As usual, it is important to cross-check that my implementation is
+working as intended. To do so, I've implemented the LeNet-inspired
+network from deeplearning.net/tutorial/lenet.html and ran it on mnist.
+</p>
+
+<p>
+<img src="./lenet_loss.png" alt="lenet_loss.png" /> <img src="./lenet_acc.png" alt="lenet_acc.png" />
+</p>
+
+<p>
+Excellent! Then, I tried a long shot: blindly adapting the input and
+output of that model to solve our image generation task. After 200
+epoch, we have something like:
+</p>
+
+
+<div class="figure">
+<p><img src="./test_image_longshot.jpg" alt="test_image_longshot.jpg" />
+</p>
+</div>
+
+<p>
+Which is underwhelming, to say the least. Oh well! As I've said, it
+was a long shot.
+</p>
+</div>
+
+<div id="outline-container-sec-1-1" class="outline-3">
+<h3 id="sec-1-1"><span class="section-number-3">1.1</span> Next steps</h3>
+<div class="outline-text-3" id="text-1-1">
+<p>
+I am currently in the process of implementing a recurrent layer such
+that I can use the captions. I first idea I'd like to try is to train
+some sort of auto-encoder on the captions to learn some useful
+representation that could be fed to a downstream model. I'm curious to
+see how much it would help.
+</p>
+
+<p>
+After that layer is implemented, it would be worthwhile start
+optimizing and trying more involved models such as GANs.
+</p>
+</div>
 </div>
 </div>
 
-<div id="outline-container-sec-1" class="outline-2">
-<h2 id="sec-1"><span class="section-number-2">1</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-21 Tue 10:28]</span></span> Status report</h2>
-<div class="outline-text-2" id="text-1">
+<div id="outline-container-sec-2" class="outline-2">
+<h2 id="sec-2"><span class="section-number-2">2</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-21 Tue 10:28]</span></span> Status report</h2>
+<div class="outline-text-2" id="text-2">
 <p>
 A few things have changed since the last report.
 </p>
 </div>
 
-<div id="outline-container-sec-1-1" class="outline-3">
-<h3 id="sec-1-1"><span class="section-number-3">1.1</span> Dropout</h3>
-<div class="outline-text-3" id="text-1-1">
+<div id="outline-container-sec-2-1" class="outline-3">
+<h3 id="sec-2-1"><span class="section-number-3">2.1</span> Dropout</h3>
+<div class="outline-text-3" id="text-2-1">
 <p>
 I implemented a dropout layer, which can be found at
 <a href="https://github.com/gagnonlg/IFT6266-project/blob/master/network.py#L51">https://github.com/gagnonlg/IFT6266-project/blob/master/network.py#L51</a>. Following
@@ -186,9 +246,9 @@ for all layers.
 </div>
 </div>
 
-<div id="outline-container-sec-1-2" class="outline-3">
-<h3 id="sec-1-2"><span class="section-number-3">1.2</span> Early stopping</h3>
-<div class="outline-text-3" id="text-1-2">
+<div id="outline-container-sec-2-2" class="outline-3">
+<h3 id="sec-2-2"><span class="section-number-3">2.2</span> Early stopping</h3>
+<div class="outline-text-3" id="text-2-2">
 <p>
 I tried to setup some early stopping mechanism, which monitors the
 training loss. Perhaps unsurprisingly, I didn't have much sucess at
@@ -223,9 +283,9 @@ using a moving average to smooth things out and using a burn-in time of
 </div>
 </div>
 
-<div id="outline-container-sec-1-3" class="outline-3">
-<h3 id="sec-1-3"><span class="section-number-3">1.3</span> Quantitative metric</h3>
-<div class="outline-text-3" id="text-1-3">
+<div id="outline-container-sec-2-3" class="outline-3">
+<h3 id="sec-2-3"><span class="section-number-3">2.3</span> Quantitative metric</h3>
+<div class="outline-text-3" id="text-2-3">
 <p>
 I also looked into alternative metrics to quantify the quality of the
 generated image, which as we all know is an interesting problem in
@@ -259,9 +319,9 @@ fine-tuning pass.
 </div>
 </div>
 
-<div id="outline-container-sec-1-4" class="outline-3">
-<h3 id="sec-1-4"><span class="section-number-3">1.4</span> Output layer</h3>
-<div class="outline-text-3" id="text-1-4">
+<div id="outline-container-sec-2-4" class="outline-3">
+<h3 id="sec-2-4"><span class="section-number-3">2.4</span> Output layer</h3>
+<div class="outline-text-3" id="text-2-4">
 <p>
 It occured to me that it might be a bad idea to use sigmoid
 activations at the last layer because they saturate and since I'm
@@ -286,9 +346,9 @@ layer (this is the next step!).
 </div>
 </div>
 
-<div id="outline-container-sec-2" class="outline-2">
-<h2 id="sec-2"><span class="section-number-2">2</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</h2>
-<div class="outline-text-2" id="text-2">
+<div id="outline-container-sec-3" class="outline-2">
+<h2 id="sec-3"><span class="section-number-2">3</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</h2>
+<div class="outline-text-2" id="text-3">
 <p>
 So I think it is about time I write an introductory post for my
 IFT6266 project blog. 
@@ -303,9 +363,9 @@ theano which I'm not really used to (mainly used Keras in the past).
 </p>
 </div>
 
-<div id="outline-container-sec-2-1" class="outline-3">
-<h3 id="sec-2-1"><span class="section-number-3">2.1</span> The Code</h3>
-<div class="outline-text-3" id="text-2-1">
+<div id="outline-container-sec-3-1" class="outline-3">
+<h3 id="sec-3-1"><span class="section-number-3">3.1</span> The Code</h3>
+<div class="outline-text-3" id="text-3-1">
 <p>
 The code can be found on github:
 <a href="https://github.com/gagnonlg/IFT6266-project">https://github.com/gagnonlg/IFT6266-project</a>. Mainly of interest is the
@@ -368,9 +428,9 @@ the training.
 </div>
 </div>
 
-<div id="outline-container-sec-2-2" class="outline-3">
-<h3 id="sec-2-2"><span class="section-number-3">2.2</span> Validation</h3>
-<div class="outline-text-3" id="text-2-2">
+<div id="outline-container-sec-3-2" class="outline-3">
+<h3 id="sec-3-2"><span class="section-number-3">3.2</span> Validation</h3>
+<div class="outline-text-3" id="text-3-2">
 <p>
 In my experience, it helps a lot to have a simple benchmark problem on
 which good results are easy to attain fast, in order to validate that
@@ -390,9 +450,9 @@ performance is obtained after only 10 epochs:
 </div>
 </div>
 
-<div id="outline-container-sec-2-3" class="outline-3">
-<h3 id="sec-2-3"><span class="section-number-3">2.3</span> Baseline model</h3>
-<div class="outline-text-3" id="text-2-3">
+<div id="outline-container-sec-3-3" class="outline-3">
+<h3 id="sec-3-3"><span class="section-number-3">3.3</span> Baseline model</h3>
+<div class="outline-text-3" id="text-3-3">
 <p>
 My baseline model for the inpainting problem is a simple 3-layer
 densely connected MLP with 1000 units per layer, batch normalization,
@@ -420,9 +480,9 @@ slowly.
 </div>
 </div>
 
-<div id="outline-container-sec-2-4" class="outline-3">
-<h3 id="sec-2-4"><span class="section-number-3">2.4</span> Next step</h3>
-<div class="outline-text-3" id="text-2-4">
+<div id="outline-container-sec-3-4" class="outline-3">
+<h3 id="sec-3-4"><span class="section-number-3">3.4</span> Next step</h3>
+<div class="outline-text-3" id="text-3-4">
 <p>
 The obvious next step is to implement a convolutionnal layer which I
 hope will help achieve better performance.
@@ -430,9 +490,9 @@ hope will help achieve better performance.
 </div>
 </div>
 
-<div id="outline-container-sec-2-5" class="outline-3">
-<h3 id="sec-2-5"><span class="section-number-3">2.5</span> Note: Setting up the code on the hades cluster</h3>
-<div class="outline-text-3" id="text-2-5">
+<div id="outline-container-sec-3-5" class="outline-3">
+<h3 id="sec-3-5"><span class="section-number-3">3.5</span> Note: Setting up the code on the hades cluster</h3>
+<div class="outline-text-3" id="text-3-5">
 <p>
 I tried working with the module system but it seemed like a real pain
 to get a consistent environment setup for all the packages I needed so
@@ -445,7 +505,7 @@ year's IFT6266 course: <a href="https://ift6266.github.io/2016/02/19/install_the
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Louis-Guillaume Gagnon</p>
-<p class="date">Created: 2017-03-21 Tue 11:00</p>
+<p class="date">Created: 2017-03-29 Wed 10:51</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.1.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
