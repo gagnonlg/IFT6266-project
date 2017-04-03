@@ -51,6 +51,83 @@ class Layer(object):
     def updates(self):
         return []
 
+def bound(fan_in, fan_out):
+    return 1.0 / np.sqrt(fan_in + fan_out)
+
+class Recurrent(Layer):
+    
+    def __init__(self, n_feature, n_state, n_out, state_only=False, last_output_only=False):
+
+        self.U = theano.shared(
+            np.random.uniform(
+                low=-bound(n_feature, n_state),
+                high=bound(n_feature, n_state),
+                size=(n_feature, n_state),
+            ).astype('float32'),
+            name='U'
+        )
+        self.W = theano.shared(
+            np.random.uniform(
+                low=-bound(n_state, n_state),
+                high=bound(n_state, n_state),
+                size=(n_state, n_state),
+            ).astype('float32'),
+            name='W',
+        )
+        self.V = theano.shared(
+            np.random.uniform(
+                low=-bound(n_state, n_out),
+                high=bound(n_state, n_out),
+                size=(n_state, n_out),
+            ).astype('float32')
+        )
+        self.b = theano.shared(
+            np.zeros(n_state).astype('float32')
+        )
+        self.c = theano.shared(
+            np.zeros(n_out).astype('float32')
+        )
+
+        self.n_feature = n_feature
+        self.n_state = n_state
+        self.n_out = n_out
+
+        self.state_only = state_only
+        self.last_output_only = last_output_only
+
+    def expression(self, X):
+
+        initial_state = T.zeros((X.shape[0], self.n_state))
+
+        def state_step(X, H, U, b, W):
+            return T.tanh(b + T.dot(X, U) + T.dot(H, W))
+
+        states, _ = theano.scan(
+            fn=state_step,
+            outputs_info=initial_state,
+            sequences=X.dimshuffle(1, 0, 2),
+            non_sequences=[self.U, self.b, self.W]
+        )
+
+        if self.state_only:
+            return states[-1]
+
+        def pred_step(H, V, c):
+            return T.nnet.sigmoid(c + T.dot(H, V))
+        
+        preds, _ = theano.scan(
+            fn=pred_step,
+            outputs_info=None,
+            sequences=states,
+            non_sequences=[self.V, self.c]
+        )
+
+        return preds[-1] if self.last_output_only else preds
+
+    def parameters(self):
+        params = [self.U, self.b, self.W]
+        return params if self.state_only else params + [self.V, self.c]
+
 class Flatten(Layer):
 
     def expression(self, X):
