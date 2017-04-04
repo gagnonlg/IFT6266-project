@@ -54,6 +54,139 @@ class Layer(object):
 def bound(fan_in, fan_out):
     return 1.0 / np.sqrt(fan_in + fan_out)
 
+class LSTM(Layer):
+
+    def __init__(self, n_feature, n_state, last_state_only=False):
+
+        U_bound = bound(n_feature, n_state)
+        U_shape = (n_feature, n_state)
+        self.U_i = theano.shared(
+            np.random.uniform(
+                low=-U_bound,
+                high=U_bound,
+                size=U_shape
+            ).astype('float32')
+        )
+        self.U_f = theano.shared(
+            np.random.uniform(
+                low=-U_bound,
+                high=U_bound,
+                size=U_shape
+            ).astype('float32')
+        )
+        self.U_o = theano.shared(
+            np.random.uniform(
+                low=-U_bound,
+                high=U_bound,
+                size=U_shape
+            ).astype('float32')
+        )
+        self.U_a = theano.shared(
+            np.random.uniform(
+                low=-U_bound,
+                high=U_bound,
+                size=U_shape
+            ).astype('float32')
+        )
+        W_bound = bound(n_feature, n_state)
+        W_shape = (n_state, n_state)
+        self.W_i = theano.shared(
+            np.random.uniform(
+                low=-W_bound,
+                high=W_bound,
+                size=W_shape
+            ).astype('float32')
+        )
+        self.W_f = theano.shared(
+            np.random.uniform(
+                low=-W_bound,
+                high=W_bound,
+                size=W_shape
+            ).astype('float32')
+        )
+        self.W_o = theano.shared(
+            np.random.uniform(
+                low=-W_bound,
+                high=W_bound,
+                size=W_shape
+            ).astype('float32')
+        )
+        self.W_a = theano.shared(
+            np.random.uniform(
+                low=-W_bound,
+                high=W_bound,
+                size=W_shape
+            ).astype('float32')
+        )
+
+        self.b_i = theano.shared(
+            np.zeros(n_state).astype('float32')
+        )
+        self.b_f = theano.shared(
+            np.zeros(n_state).astype('float32')
+        )
+        self.b_o = theano.shared(
+            np.zeros(n_state).astype('float32')
+        )
+        self.b_a = theano.shared(
+            np.zeros(n_state).astype('float32')
+        )
+
+        self.n_feature = n_feature
+        self.n_state = n_state
+        self.last_state_only = last_state_only
+
+    def expression(self, X):
+
+        def state_step(X, H):
+
+            input_gate = T.nnet.sigmoid(
+                self.b_i + T.dot(X, self.U_i) + T.dot(H, self.W_i)
+            )
+            
+            forget_gate = T.nnet.sigmoid(
+                self.b_f + T.dot(X, self.U_f) + T.dot(H, self.W_f)
+            )
+
+            output_gate = T.nnet.sigmoid(
+                self.b_o + T.dot(X, self.U_o) + T.dot(H, self.W_o)
+            )
+
+            activation = T.nnet.sigmoid(
+                self.b_a + T.dot(X, self.U_a) + T.dot(H, self.W_a)
+            )
+
+            state = activation * input_gate + H * forget_gate
+
+            return T.tanh(state) * output_gate
+
+        initial_state = T.zeros((X.shape[0], self.n_state))
+
+        states, _ = theano.scan(
+            fn=state_step,
+            outputs_info=initial_state,
+            sequences=X.dimshuffle(1, 0, 2),
+        )
+
+        return states[-1] if self.last_state_only else states
+
+
+    def parameters(self):
+        return [
+            self.U_i,
+            self.U_f,
+            self.U_o,
+            self.U_a,
+            self.W_i,
+            self.W_f,
+            self.W_o,
+            self.W_a,
+            self.b_i,
+            self.b_f,
+            self.b_o,
+            self.b_a,
+        ]
+
 class Recurrent(Layer):
     
     def __init__(self, n_feature, n_state, n_out, state_only=False, last_output_only=False):
