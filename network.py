@@ -56,7 +56,7 @@ def bound(fan_in, fan_out):
 
 class LSTM(Layer):
 
-    def __init__(self, n_feature, n_state, last_state_only=False):
+    def __init__(self, n_feature, n_state, last_state_only=False, const_input=False, n_step=None):
 
         U_bound = bound(n_feature, n_state)
         U_shape = (n_feature, n_state)
@@ -135,6 +135,8 @@ class LSTM(Layer):
         self.n_feature = n_feature
         self.n_state = n_state
         self.last_state_only = last_state_only
+        self.const_input = const_input
+        self.n_step = n_step
 
     def expression(self, X):
 
@@ -160,12 +162,35 @@ class LSTM(Layer):
 
             return T.tanh(state) * output_gate
 
+        def state_step_const(H):
+            input_gate = T.nnet.sigmoid(
+                self.b_i + T.dot(X, self.U_i) + T.dot(H, self.W_i)
+            )
+            
+            forget_gate = T.nnet.sigmoid(
+                self.b_f + T.dot(X, self.U_f) + T.dot(H, self.W_f)
+            )
+
+            output_gate = T.nnet.sigmoid(
+                self.b_o + T.dot(X, self.U_o) + T.dot(H, self.W_o)
+            )
+
+            activation = T.nnet.sigmoid(
+                self.b_a + T.dot(X, self.U_a) + T.dot(H, self.W_a)
+            )
+
+            state = activation * input_gate + H * forget_gate
+
+            return T.tanh(state) * output_gate
+
+
         initial_state = T.zeros((X.shape[0], self.n_state))
 
         states, _ = theano.scan(
-            fn=state_step,
+            fn=(state_step_const if self.const_input else state_step),
             outputs_info=initial_state,
-            sequences=X.dimshuffle(1, 0, 2),
+            sequences=(None if self.const_input else X.dimshuffle(1, 0, 2)),
+            n_steps=self.n_step
         )
 
         return states[-1] if self.last_state_only else states

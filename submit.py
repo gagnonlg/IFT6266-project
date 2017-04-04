@@ -32,7 +32,7 @@ def launch(name, script, datapath):
         '-N', name,
         '-d', wdir,
         '-joe', '-koe',
-        '-l', 'walltime=48:00:00,nodes=1:ppn=1,mem=2gb',
+        '-l', 'walltime=48:00:00,nodes=1:ppn=1,mem=4gb',
     ]
 
     if datapath is not None:
