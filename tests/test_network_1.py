@@ -48,14 +48,12 @@ mlp.train(
     datax,
     datay,
     val_data=(validx, validy),
-    n_epochs=100,
+    n_epochs=1,
 )
 
-mlp.save('test_model_1.gz')
+mlp.save('test_model_1.h5')
 
 print '-> Testing the model'
-
-mlp = network.Network.load('test_model_1.gz')
     
 isort = np.argsort(testx[:,0])
 x = testx[isort]
@@ -65,3 +63,16 @@ plt.plot(x, mlp(testx[isort]), 'k')
 plt.plot(x, np.sin(x), 'k--')
 plt.scatter(x, y, facecolors='none', edgecolor='r')
 plt.savefig('sine_test.png')
+
+print '-> Testing the model with the saved version'
+
+mlp = network.Network.load('test_model_1.h5')
+
+isort = np.argsort(testx[:,0])
+x = testx[isort]
+y = testy[isort]
+
+plt.plot(x, mlp(testx[isort]), 'k')
+plt.plot(x, np.sin(x), 'k--')
+plt.scatter(x, y, facecolors='none', edgecolor='r')
+plt.savefig('sine_test_from_save.png')

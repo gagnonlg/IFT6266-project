@@ -39,7 +39,7 @@ class Layer(object):
 
     def training_expression(self, X):
         return self.expression(X)
-    
+
     def parameters(self):
         """ Return the trainable parameters """
         return []
@@ -50,6 +50,14 @@ class Layer(object):
 
     def updates(self):
         return []
+
+    def save(self, h5grp):
+        pass
+
+    @classmethod
+    def load(cls, h5dset):
+        return cls()
+
 
 def bound(fan_in, fan_out):
     return 1.0 / np.sqrt(fan_in + fan_out)
@@ -145,7 +153,7 @@ class LSTM(Layer):
             input_gate = T.nnet.sigmoid(
                 self.b_i + T.dot(X, self.U_i) + T.dot(H, self.W_i)
             )
-            
+
             forget_gate = T.nnet.sigmoid(
                 self.b_f + T.dot(X, self.U_f) + T.dot(H, self.W_f)
             )
@@ -166,7 +174,7 @@ class LSTM(Layer):
             input_gate = T.nnet.sigmoid(
                 self.b_i + T.dot(X, self.U_i) + T.dot(H, self.W_i)
             )
-            
+
             forget_gate = T.nnet.sigmoid(
                 self.b_f + T.dot(X, self.U_f) + T.dot(H, self.W_f)
             )
@@ -212,8 +220,59 @@ class LSTM(Layer):
             self.b_a,
         ]
 
+    def save(self, h5grp):
+        h5grp.create_dataset(n_feature, data=self.n_feature)
+        h5grp.create_dataset(n_state, data=self.n_state)
+        h5grp.create_dataset(last_state_only, data=self.last_state_only)
+        h5grp.create_dataset(const_input, data=self.const_input)
+        h5grp.create_dataset(n_step, data=n_step)
+        h5grp.create_dataset('U_i', data=self.U_i.get_value())
+        h5grp.create_dataset('U_f', data=self.U_f.get_value())
+        h5grp.create_dataset('U_o', data=self.U_o.get_value())
+        h5grp.create_dataset('U_a', data=self.U_a.get_value())
+        h5grp.create_dataset('W_i', data=self.W_i.get_value())
+        h5grp.create_dataset('W_f', data=self.W_f.get_value())
+        h5grp.create_dataset('W_o', data=self.W_o.get_value())
+        h5grp.create_dataset('W_a', data=self.W_a.get_value())
+        h5grp.create_dataset('b_i', data=self.b_i.get_value())
+        h5grp.create_dataset('b_f', data=self.b_f.get_value())
+        h5grp.create_dataset('b_o', data=self.b_o.get_value())
+        h5grp.create_dataset('b_a', data=self.b_a.get_value())
+
+    @staticmethod
+    def load(h5grp):
+        n_feature = h5grp['n_feature'].value
+        n_state = h5grp['n_state'].value
+        last_state_only = h5grp['last_state_only'].value
+        const_input = h5grp['const_input'].value
+        n_step = h5grp['n_step'].value
+
+        layer = LSTM(
+            n_feature=n_feature,
+            n_state=n_state,
+            last_state_only=last_state_only,
+            const_input=const_input,
+            n_step=n_step,
+        )
+
+        layer.U_i.set_value(h5grp['U_i'].value)
+        layer.U_f.set_value(h5grp['U_f'].value)
+        layer.U_o.set_value(h5grp['U_o'].value)
+        layer.U_a.set_value(h5grp['U_a'].value)
+        layer.W_i.set_value(h5grp['W_i'].value)
+        layer.W_f.set_value(h5grp['W_f'].value)
+        layer.W_o.set_value(h5grp['W_o'].value)
+        layer.W_a.set_value(h5grp['W_a'].value)
+        layer.b_i.set_value(h5grp['b_i'].value)
+        layer.b_f.set_value(h5grp['b_f'].value)
+        layer.b_o.set_value(h5grp['b_o'].value)
+        layer.b_a.set_value(h5grp['b_a'].value)
+
+        return layer
+        
+
 class Recurrent(Layer):
-    
+
     def __init__(self, n_feature, n_state, n_out, state_only=False, last_output_only=False):
 
         self.U = theano.shared(
@@ -272,7 +331,7 @@ class Recurrent(Layer):
 
         def pred_step(H, V, c):
             return T.nnet.sigmoid(c + T.dot(H, V))
-        
+
         preds, _ = theano.scan(
             fn=pred_step,
             outputs_info=None,
@@ -285,6 +344,35 @@ class Recurrent(Layer):
     def parameters(self):
         params = [self.U, self.b, self.W]
         return params if self.state_only else params + [self.V, self.c]
+
+    def save(self, h5grp):
+        h5grp.create_dataset('n_feature', data=self.n_feature)
+        h5grp.create_dataset('n_state', data=self.n_state)
+        h5grp.create_dataset('n_out', data=self.n_out)
+        h5grp.create_dataset('state_only', data=self.state_only)
+        h5grp.create_dataset('last_output_only', data=self.last_output_only)
+        h5grp.create_dataset('U', data=self.U.get_value())
+        h5grp.create_dataset('W', data=self.W.get_value())
+        h5grp.create_dataset('V', data=self.V.get_value())
+        h5grp.create_dataset('b', data=self.b.get_value())
+        h5grp.create_dataset('c', data=self.c.get_value())
+
+    @staticmethod
+    def load(h5grp):
+        layer = Recurrent(
+            n_feature=h5grp['n_feature'].value,
+            n_state=h5grp['n_state'].value,
+            n_out=h5grp['n_out'].value,
+            state_only=h5grp['state_only'].value,
+            last_output_only=h5grp['last_output_only'].value,
+        )
+        layer.U.set_value(h5grp['U'].value)
+        layer.W.set_value(h5grp['W'].value)
+        layer.V.set_value(h5grp['V'].value)
+        layer.b.set_value(h5grp['b'].value)
+        layer.c.set_value(h5grp['c'].value)
+
+        return layer
 
 class Flatten(Layer):
 
@@ -316,14 +404,14 @@ class Convolution(Layer):
         self.b = theano.shared(
             np.full((n_feature_maps,), 0.1).astype('float32')
         )
-            
+
 
         self.l2 = l2
         self.strides = strides
 
     def expression(self, X):
         # expected shape of input:
-        # (batch, channel, height, width) 
+        # (batch, channel, height, width)
         return T.nnet.conv2d(
             X,
             self.kernel,
@@ -338,6 +426,36 @@ class Convolution(Layer):
     def reg_loss(self):
         return self.l2 * self.kernel.norm(2)
 
+    def save(self, h5grp):
+        h5grp.create_dataset('filter_shape', data=self.filter_shape)
+        h5grp.create_dataset('border_mode', data=self.border_mode)
+        h5grp.create_dataset('kernel', data=self.kernel.get_value())
+        h5grp.create_dataset('b', data=self.b.get_value())
+        h5grp.create_dataset('l2', data=self.l2)
+        h5grp.create_dataset('strides', data=self.strides)
+
+    @staticmethod
+    def load(h5grp):
+        shape = h5grp['filter_shape'].value
+        l2 = h5grp['l2'].value
+        strides = h5grp['strides'].value
+        ignore_border = h5grp['ignore_border'].value
+
+        layer = Convolution(
+            n_feature_maps=shape[0],
+            n_input_channels=shape[1],
+            height=shape[2],
+            width=shape[3],
+            l2=l2,
+            strides=strides,
+            border_mode=border_mode
+        )
+
+        layer.kernel.set_value(h5grp['kernel'].value)
+        layer.b.set_value(h5grp['b'].value)
+
+        return layer
+
 class MaxPool(Layer):
 
     def __init__(self, factors, ignore_border=False):
@@ -349,6 +467,17 @@ class MaxPool(Layer):
             input=X,
             ds=self.poolsize,
             ignore_border=self.ignore_border,
+        )
+
+    def save(self, h5grp):
+        h5grp.create_dataset('ignore_border', data=self.ignore_border)
+        h5grp.create_dataset('poolsize', data=self.poolsize)
+
+    @staticmethod
+    def load(h5grp):
+        return MaxPool(
+            factors=h5grp['poolsize'].value,
+            ignore_border=h5grp['ignore_border'].value
         )
 
 class Dropout(Layer):
@@ -367,7 +496,14 @@ class Dropout(Layer):
 
     def expression(self, X):
         return X * self.keep_prob
-        
+
+    def save(self, h5grp):
+        h5grp.create_dataset('keep_prob', data=self.keep_prob)
+
+    @staticmethod
+    def load(h5grp):
+        return Dropout(drop_prob=(1 - h5grp['keep_prob'].value))
+
 
 class ScaleOffset(Layer):
 
@@ -379,6 +515,17 @@ class ScaleOffset(Layer):
     def expression(self, X):
         return X * self.scale + self.offset
 
+    def save(self, h5grp):
+        h5grp.create_dataset('scale', data=self.scale)
+        h5grp.create_dataset('offset', data=self.offset)
+
+    @staticmethod
+    def load(self, h5grp):
+        return ScaleOffset(
+            scale=h5grp['scale'].value,
+            offset=h5grp['offset'].value
+        )
+
 class Clip(Layer):
 
     def __init__(self, min, max):
@@ -387,6 +534,17 @@ class Clip(Layer):
 
     def expression(self, X):
         return X.clip(self.min, self.max)
+
+    def save(self, h5grp):
+        h5grp.create_dataset('min', data=self.min)
+        h5grp.create_dataset('max', data=self.max)
+
+    @staticmethod
+    def load(h5grp):
+        return Clip(
+            min=h5grp['max'].value,
+            max=h5grp['min'].value
+        )
 
 class LinearTransformation(Layer):
     """ Linear transformation of the form X * W + b """
@@ -415,6 +573,21 @@ class LinearTransformation(Layer):
         self.b = theano.shared(
             value=np.full((n_out,), 0.1).astype('float32'),
         )
+
+    def save(self, h5grp):
+        h5grp.create_dataset('l2', data=self.l2)
+        h5grp.create_dataset('shape', data=self.shape)
+        h5grp.create_dataset('W', data=self.W.get_value())
+        h5grp.create_dataset('b', data=self.b.get_value())
+
+    @staticmethod
+    def load(h5grp):
+        layer = LinearTransformation(h5grp['shape'].value)
+        layer.l2 = np.float32(h5grp['l2'].value)
+        layer.W.set_value(h5grp['W'].value)
+        layer.b.set_value(h5grp['b'].value)
+        return layer
+        
 
     def reg_loss(self):
         return self.l2 * self.W.norm(2)
@@ -447,7 +620,9 @@ class Softmax(Layer):
 class BatchNorm(Layer):
 
     def __init__(self, n_input):
-        
+
+        self.n_input = n_input
+
         self.gamma = theano.shared(np.float32(1.0))
         self.beta = theano.shared(np.float32(0.0))
 
@@ -458,15 +633,31 @@ class BatchNorm(Layer):
             np.ones(n_input).astype('float32')
         )
 
+    def save(self, h5grp):
+        h5grp.create_dataset('n_input', data=self.n_input)
+        h5grp.create_dataset('gamma', data=self.gamma.get_value())
+        h5grp.create_dataset('beta', data=self.beta.get_value())
+        h5grp.create_dataset('online_mean', data=self.online_mean.get_value())
+        h5grp.create_dataset('online_variance', data=self.online_variance.get_value())
+
+    @staticmethod
+    def load(h5grp):
+        layer = BatchNorm(h5grp['n_input'].value)
+        layer.gamma.set_value(h5grp['gamma'].value)
+        layer.beta.set_value(h5grp['beta'].value)
+        layer.online_mean.set_value(h5grp['online_mean'].value)
+        layer.online_variance.set_value(h5grp['online_variance'].value)
+        return layer
+        
     def expression(self, X):
         normd = (X - self.online_mean) / T.sqrt(self.online_variance + 0.001)
         return self.gamma * normd + self.beta
-        
+
     def training_expression(self, X):
         self.sample_mean = T.mean(X, axis=0)
         self.sample_variance = T.var(X, axis=0)
         normd = (X - self.sample_mean) / T.sqrt(self.sample_variance + 0.001)
-        return self.gamma * normd + self.beta    
+        return self.gamma * normd + self.beta
 
     def parameters(self):
         return [self.gamma, self.beta]
@@ -479,8 +670,8 @@ class BatchNorm(Layer):
             (self.online_variance, var_upd)
         ]
 
-            
-    
+
+
 
 ########################################################################
 # Network <=> a collection of layers
@@ -509,8 +700,9 @@ class Network(object):
 
         self.vartypeX = vartype[0]
         self.vartypeY = vartype[1]
-        
+
         self.lr = lr
+        self.momentum = momentum
 
         self.batch_size = batch_size
         self.cache_size = cache_size
@@ -518,7 +710,7 @@ class Network(object):
         self.__train_fun = self.__make_training_function(momentum)
         self.__test_fun = self.__make_test_function()
         self.__valid_fun = self.__make_validation_function()
-                
+
 
     def training_expression(self, X):
         tensor = X
@@ -539,7 +731,7 @@ class Network(object):
               val_data,
               n_epochs,
               start_epoch=0):
-  
+
         for epoch in range(start_epoch, start_epoch + n_epochs):
 
             # First, run the training for the current epoch
@@ -571,7 +763,7 @@ class Network(object):
                 y = self.Y_cache.get_value()[bound0:bound1]
                 log.debug('xbatch: %s, ybatch: %s', str(x.shape), str(y.shape))
         return np.mean(losses)
-    
+
     def __validation_loss(self, Xv, Yv):
         losses = []
         for ibatch in self.__cache_generator(Xv, Yv, batch_size=self.cache_size[0]):
@@ -592,13 +784,49 @@ class Network(object):
                 yield ibatch
 
     def save(self, path):
-        with gzip.open(path, 'wb') as savefile:
-            cPickle.dump(self, savefile)
+        with h5.File(path, 'w') as savefile:
+            for i, lyr in enumerate(self.layers):
+                key = str(i) + ':' + lyr.__class__.__name__
+                grp = savefile.create_group(key)
+                lyr.save(grp)
+
+            grp = savefile.create_group('Network')
+            grp.attrs['loss'] = np.void(cPickle.dumps(self.loss))
+            grp.attrs['vartype'] = np.void(cPickle.dumps((self.vartypeX, self.vartypeY)))
+            grp.create_dataset('lr', data=self.lr)
+            grp.create_dataset('momentum', data=self.momentum)
+            grp.create_dataset('batch_size', data=self.batch_size)
+            grp.create_dataset('cache_size', data=self.cache_size)
+
 
     @staticmethod
     def load(path):
-        with gzip.open(path, 'rb') as savefile:
-            return cPickle.load(savefile)
+        netw = Network()
+        with h5.File(path, 'r') as savefile:
+
+            ikeys = []
+            for key in savefile.keys():
+                if key == 'Network':
+                    continue
+                fields = key.split(':')
+                ikeys.append((int(fields[0]), fields[1], key))
+            
+            for _, type, key in sorted(ikeys):
+                log.debug('loading layer type: %s', type)
+                netw.add(globals()[type].load(savefile[key]))
+
+            grp = savefile['Network']
+            netw.compile(
+                lr=np.float32(grp['lr'].value),
+                momentum=np.float32(grp['momentum'].value),
+                batch_size=grp['batch_size'].value,
+                cache_size=grp['cache_size'].value,
+                vartype=cPickle.loads(grp.attrs['vartype'].tostring()),
+                loss=cPickle.loads(grp.attrs['loss'].tostring())
+            )
+
+
+        return netw
 
     def __loss(self, X, Y):
         loss = self.loss(self.training_expression(X), Y)
@@ -616,7 +844,7 @@ class Network(object):
             X_cache_size = (X_cache_size,)
         if not type(Y_cache_size) == tuple:
             Y_cache_size = (Y_cache_size,)
-            
+
         self.X_cache = theano.shared(
             np.zeros((nrows_cache,) + X_cache_size).astype('float32')
         )
@@ -646,7 +874,7 @@ class Network(object):
             (velo, momentum * velo - lr * gparam)
             for velo, gparam in zip(self.velocity, gparams)
         ]
-        
+
         p_updates = [
             (param, param + velo)
             for param, velo in zip(self.parameters, self.velocity)
@@ -678,7 +906,7 @@ class Network(object):
             outputs=self.expression(X),
             allow_input_downcast=True
         )
-  
+
     def __make_validation_function(self):
         X = self.vartypeX()
         Y = self.vartypeY()
@@ -694,4 +922,3 @@ class Network(object):
             },
             allow_input_downcast=True
         )
-            
