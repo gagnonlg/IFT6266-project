@@ -476,7 +476,7 @@ class MaxPool(Layer):
     @staticmethod
     def load(h5grp):
         return MaxPool(
-            factors=h5grp['poolsize'].value,
+            factors=tuple(h5grp['poolsize'].value),
             ignore_border=h5grp['ignore_border'].value
         )
 
@@ -520,7 +520,7 @@ class ScaleOffset(Layer):
         h5grp.create_dataset('offset', data=self.offset)
 
     @staticmethod
-    def load(self, h5grp):
+    def load(h5grp):
         return ScaleOffset(
             scale=h5grp['scale'].value,
             offset=h5grp['offset'].value
@@ -542,8 +542,8 @@ class Clip(Layer):
     @staticmethod
     def load(h5grp):
         return Clip(
-            min=h5grp['max'].value,
-            max=h5grp['min'].value
+            min=h5grp['min'].value,
+            max=h5grp['max'].value
         )
 
 class LinearTransformation(Layer):
@@ -793,10 +793,11 @@ class Network(object):
             grp = savefile.create_group('Network')
             grp.attrs['loss'] = np.void(cPickle.dumps(self.loss))
             grp.attrs['vartype'] = np.void(cPickle.dumps((self.vartypeX, self.vartypeY)))
+            grp.attrs['cache_size'] = np.void(cPickle.dumps(self.cache_size))
+            
             grp.create_dataset('lr', data=self.lr)
             grp.create_dataset('momentum', data=self.momentum)
             grp.create_dataset('batch_size', data=self.batch_size)
-            grp.create_dataset('cache_size', data=self.cache_size)
 
 
     @staticmethod
@@ -820,7 +821,7 @@ class Network(object):
                 lr=np.float32(grp['lr'].value),
                 momentum=np.float32(grp['momentum'].value),
                 batch_size=grp['batch_size'].value,
-                cache_size=grp['cache_size'].value,
+                cache_size=cPickle.loads(grp.attrs['cache_size'].tostring()),
                 vartype=cPickle.loads(grp.attrs['vartype'].tostring()),
                 loss=cPickle.loads(grp.attrs['loss'].tostring())
             )
@@ -896,7 +897,8 @@ class Network(object):
                 X: self.X_cache[bound0:bound1],
                 Y: self.Y_cache[bound0:bound1],
             },
-            allow_input_downcast=True
+            allow_input_downcast=True,
+            on_unused_input='warn'
         )
 
     def __make_test_function(self):
