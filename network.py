@@ -221,11 +221,14 @@ class LSTM(Layer):
         ]
 
     def save(self, h5grp):
-        h5grp.create_dataset(n_feature, data=self.n_feature)
-        h5grp.create_dataset(n_state, data=self.n_state)
-        h5grp.create_dataset(last_state_only, data=self.last_state_only)
-        h5grp.create_dataset(const_input, data=self.const_input)
-        h5grp.create_dataset(n_step, data=n_step)
+
+        n_step = -1 if self.n_step is None else n_step
+        
+        h5grp.create_dataset('n_feature', data=self.n_feature)
+        h5grp.create_dataset('n_state', data=self.n_state)
+        h5grp.create_dataset('last_state_only', data=self.last_state_only)
+        h5grp.create_dataset('const_input', data=self.const_input)
+        h5grp.create_dataset('n_step', data=n_step)
         h5grp.create_dataset('U_i', data=self.U_i.get_value())
         h5grp.create_dataset('U_f', data=self.U_f.get_value())
         h5grp.create_dataset('U_o', data=self.U_o.get_value())
@@ -252,7 +255,7 @@ class LSTM(Layer):
             n_state=n_state,
             last_state_only=last_state_only,
             const_input=const_input,
-            n_step=n_step,
+            n_step=n_step if n_step != -1 else None,
         )
 
         layer.U_i.set_value(h5grp['U_i'].value)
@@ -439,7 +442,7 @@ class Convolution(Layer):
         shape = h5grp['filter_shape'].value
         l2 = h5grp['l2'].value
         strides = h5grp['strides'].value
-        ignore_border = h5grp['ignore_border'].value
+        border_mode = h5grp['border_mode'].value
 
         layer = Convolution(
             n_feature_maps=shape[0],

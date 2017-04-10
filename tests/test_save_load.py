@@ -102,11 +102,45 @@ def gen_data_maxpool():
 
 test_layer(network.MaxPool((2,2)), gen_data_maxpool)
 
-# TODO:
-# class Convolution(Layer):
-# class Recurrent(Layer):
-# class LSTM(Layer):
+def gen_data_conv():
+    dataX =np.random.uniform(size=64*16).reshape((64,1,4,4)).astype('float32')
+    # shape - fshape + 1
+    # 4 - 2 + 1 = 3
+    dataY = np.random.uniform(size=64*9).reshape((64,1,3,3)).astype('float32')
+    vdataX=np.random.uniform(size=64*16).reshape((64,1,4,4)).astype('float32')
+    vdataY= np.random.uniform(size=64*9).reshape((64,1,3,3)).astype('float32')
+    tdataX=np.random.uniform(size=64*16).reshape((64,1,4,4)).astype('float32')
 
+    return dataX,dataY,vdataX,vdataY,tdataX
 
+test_layer(
+    network.Convolution(1, 1, 2, 2, border_mode='valid'),
+    gen_data_conv
+)
 
-                
+def gen_data_rnn():
+    dataX =np.random.uniform(size=64*16).reshape((64,4,4)).astype('float32')
+    dataY =np.random.uniform(size=64*5).reshape((64,5)).astype('float32')
+    vdataX =np.random.uniform(size=64*16).reshape((64,4,4)).astype('float32')
+    vdataY =np.random.uniform(size=64*5).reshape((64,5)).astype('float32')
+    tdataX =np.random.uniform(size=64*16).reshape((64,4,4)).astype('float32')
+    return dataX,dataY,vdataX,vdataY,tdataX
+
+test_layer(
+    network.Recurrent(
+        n_feature=4,
+        n_state=10,
+        n_out=5,
+        last_output_only=True
+    ),
+    gen_data_rnn
+)
+
+test_layer(
+    network.LSTM(
+        n_feature=4,
+        n_state=5,
+        last_state_only=True
+    ),
+    gen_data_rnn
+)                
