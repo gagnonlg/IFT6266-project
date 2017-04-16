@@ -27,6 +27,10 @@ def mse_loss(xmatrix, ymatrix):
 def negative_log_likelihood_loss(x, y):
     return -T.mean(T.log(x)[T.arange(y.shape[0]), T.argmax(y, axis=1)])
 
+def cross_entropy_vector_loss(x, y):
+    f = 1.0 / 255
+    return T.mean(T.nnet.binary_crossentropy(f*x, f*y).sum(axis=1))
+
 ########################################################################
 # LAYERS
 
@@ -34,7 +38,7 @@ def negative_log_likelihood_loss(x, y):
 class Layer(object):
 
     def expression(self, X):
-        """ Return a theano symbolic expression for this layer """
+        """ Return a theano smbolic expression for this layer """
         return X
 
     def training_expression(self, X):
