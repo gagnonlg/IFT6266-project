@@ -516,8 +516,8 @@ class ScaleOffset(Layer):
 
     def __init__(self, scale=1.0, offset=0.0):
 
-        self.scale = scale
-        self.offset = offset
+        self.scale = np.float32(scale)
+        self.offset = np.float32(offset)
 
     def expression(self, X):
         return X * self.scale + self.offset
@@ -696,13 +696,16 @@ class Network(object):
         self.parameters += layer.parameters()
 
     def compile(self,
-                lr,
-                momentum,
                 batch_size,
                 cache_size,
+                lr=0.001,
+                momentum=0.0,
                 vartype=(T.matrix, T.matrix),
-                loss=mse_loss):
+                loss=mse_loss,
+                use_ADAM=False):
 
+        self.use_ADAM = use_ADAM
+        
         self.loss = loss
 
         self.vartypeX = vartype[0]
@@ -714,7 +717,7 @@ class Network(object):
         self.batch_size = batch_size
         self.cache_size = cache_size
 
-        self.__train_fun = self.__make_training_function(momentum)
+        self.__train_fun = self.__make_training_function(momentum, use_ADAM)
         self.__test_fun = self.__make_test_function()
         self.__valid_fun = self.__make_validation_function()
 
@@ -742,7 +745,7 @@ class Network(object):
         for epoch in range(start_epoch, start_epoch + n_epochs):
 
             # First, run the training for the current epoch
-            loss = self.__run_training_epoch(X, Y)
+            loss = self.__run_training_epoch(X, Y, epoch)
 
             # Bail if the loss is NaN
             if np.isnan(loss):
@@ -758,10 +761,13 @@ class Network(object):
                 vloss,
             )
 
-    def __run_training_epoch(self, X, Y):
+    def __run_training_epoch(self, X, Y, epoch):
         losses = []
         for ibatch in self.__cache_generator(X, Y):
-            losses.append(self.__train_fun(ibatch, self.lr))
+            if self.use_ADAM:
+                losses.append(self.__train_fun(ibatch, self.lr, epoch))
+            else:
+                losses.append(self.__train_fun(ibatch, self.lr))
             if log.isEnabledFor(logging.DEBUG):
                 # costly operation...
                 bound0 = ibatch * self.batch_size
@@ -801,7 +807,8 @@ class Network(object):
             grp.attrs['loss'] = np.void(cPickle.dumps(self.loss))
             grp.attrs['vartype'] = np.void(cPickle.dumps((self.vartypeX, self.vartypeY)))
             grp.attrs['cache_size'] = np.void(cPickle.dumps(self.cache_size))
-            
+
+            grp.create_dataset('use_ADAM', data=1.0 if self.use_ADAM else 0.0)
             grp.create_dataset('lr', data=self.lr)
             grp.create_dataset('momentum', data=self.momentum)
             grp.create_dataset('batch_size', data=self.batch_size)
@@ -830,7 +837,8 @@ class Network(object):
                 batch_size=grp['batch_size'].value,
                 cache_size=cPickle.loads(grp.attrs['cache_size'].tostring()),
                 vartype=cPickle.loads(grp.attrs['vartype'].tostring()),
-                loss=cPickle.loads(grp.attrs['loss'].tostring())
+                loss=cPickle.loads(grp.attrs['loss'].tostring()),
+                use_ADAM=grp['use_ADAM'].value == 1,
             )
 
 
@@ -843,7 +851,7 @@ class Network(object):
         return loss
 
 
-    def __make_training_function(self, momentum=0.0):
+    def __make_training_function(self, momentum=0.0, adam=False):
         nrows_cache = self.cache_size[0]
         X_cache_size = self.cache_size[1]
         Y_cache_size = self.cache_size[2]
@@ -861,11 +869,34 @@ class Network(object):
             np.zeros((nrows_cache,) + Y_cache_size).astype('float32')
         )
 
+        # ADAM constants
+        delta = 10e-8
+        rho1 = 0.9
+        rho2 = 0.999
+
         # placeholders
         X = self.vartypeX('X')
         Y = self.vartypeY('Y')
         lr = T.scalar()
+        t = T.scalar() # epoch
 
+        # will be used if ADAM
+        self.moment_1 = []
+        self.moment_2 = []
+        for param in self.parameters:
+            self.moment_1.append(
+                theano.shared(
+                    np.zeros_like(param.get_value()).astype('float32')
+                )
+            )
+            self.moment_2.append(
+                theano.shared(
+                    np.zeros_like(param.get_value()).astype('float32')
+                )
+            )
+
+
+        # will be used if not ADAM
         self.velocity = []
         for param in self.parameters:
             self.velocity.append(
@@ -878,26 +909,58 @@ class Network(object):
 
         gparams = [T.grad(loss, param) for param in self.parameters]
 
-        v_updates = [
-            (velo, momentum * velo - lr * gparam)
-            for velo, gparam in zip(self.velocity, gparams)
-        ]
 
-        p_updates = [
-            (param, param + velo)
-            for param, velo in zip(self.parameters, self.velocity)
-        ]
+        if adam:
+            
+            f1 = 1.0 / (1 - T.pow(rho1, t + 1))
+            m_1_updates = [
+                (m, rho1 * m + (1 - rho1) * g)
+                for m, g in zip(self.moment_1, gparams)
+            ]
 
-        updates = v_updates + p_updates
+            f2 = 1.0 / (1 - T.pow(rho2, t + 1))
+            m_2_updates = [
+                (m, rho2 * m + (1 - rho2) * g * g)
+                for m, g in zip(self.moment_2, gparams)
+            ]
+
+            p_updates = [
+                (param, param - lr * (f1 * s) / (T.sqrt(f2*r) + delta))
+                for param, s, r in
+                zip(self.parameters, self.moment_1, self.moment_2)
+            ]
+
+            updates = m_1_updates + m_2_updates + p_updates
+            
+        else:
+
+            # will be used if not ADAM
+            v_updates = [
+                (velo, momentum * velo - lr * gparam)
+                for velo, gparam in zip(self.velocity, gparams)
+            ]
+
+            p_updates = [
+                (param, param + velo)
+                for param, velo in zip(self.parameters, self.velocity)
+            ]
+
+            updates = v_updates + p_updates
+
+            
         for upd in [lyr.updates() for lyr in self.layers]:
             updates += upd
 
         index = T.lscalar()
+        if adam:
+            inputs = [index, lr, t]
+        else:
+            inputs = [index, lr]
 
         bound0 = index * self.batch_size
         bound1 = (index + 1) * self.batch_size
         return theano.function(
-            inputs=[index, lr],
+            inputs=inputs,
             outputs=loss,
             updates=updates,
             givens={
