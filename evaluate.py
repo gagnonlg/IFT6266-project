@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import PIL.Image
 import h5py as h5
+import scipy.stats
 
 import dataset
 import network
@@ -19,13 +20,12 @@ def get_args():
     args.add_argument('--log')
     return args.parse_args()
 
-def montage(model, data, outpath):
+def montage(borders, centers, outpath):
 
     imfiles = []
-    centers = model(data)
     for i in range(centers.shape[0]):
         img = dataset.reconstruct_from_flat(
-            data[i],
+            borders[i],
             centers[i]
         ).astype(np.uint8)
         _, tmp = tempfile.mkstemp()
@@ -53,6 +53,20 @@ def loss_curves(log, out):
     plt.ylabel('Loss')
     plt.legend(loc='best')
     plt.savefig(out)
+    plt.close()
+
+def entropy(borders, centers, outpath):
+    entrs = np.zeros(centers.shape[0])
+    for i in range(centers.shape[0]):
+        pp, _ = np.histogram(centers[i], bins=range(2**8), density=True)
+        pb, _ = np.histogram(borders[i], bins=range(2**8), density=True)
+        entrs[i] = scipy.stats.entropy(pp + 1e-8, pb + 1e-8)
+
+    plt.hist(entrs, histtype='step', bins=50)
+    plt.xlabel('KL(center||border)')
+    plt.ylabel('Images')
+    plt.savefig(outpath)
+    plt.close()
             
 def main():
     
@@ -65,10 +79,17 @@ def main():
     model = network.Network.load(args.model)
     data = h5.File(args.data, 'r')
 
+    log.info('Generating test images')
+    borders = data['val/input'][:1000]
+    centers = model(borders)
+
+    log.info('Measuring KL divergence')
+    entropy(borders, centers, args.model.replace('.h5', '.entropy.jpg'))
+
     log.info('Creating montage')
     montage(
-        model=model,
-        data=data['val/input'][:100],
+        borders=borders[:100],
+        centers=centers[:100],
         outpath=args.model.replace('.h5', '.jpg')
     )
 

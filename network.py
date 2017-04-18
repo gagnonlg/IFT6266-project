@@ -831,6 +831,12 @@ class Network(object):
                 netw.add(globals()[type].load(savefile[key]))
 
             grp = savefile['Network']
+
+            if 'use_ADAM' in grp:
+                use_ADAM = grp['use_ADAM'].value == 1,
+            else:
+                use_ADAM = False
+                
             netw.compile(
                 lr=np.float32(grp['lr'].value),
                 momentum=np.float32(grp['momentum'].value),
@@ -838,7 +844,7 @@ class Network(object):
                 cache_size=cPickle.loads(grp.attrs['cache_size'].tostring()),
                 vartype=cPickle.loads(grp.attrs['vartype'].tostring()),
                 loss=cPickle.loads(grp.attrs['loss'].tostring()),
-                use_ADAM=grp['use_ADAM'].value == 1,
+                use_ADAM=use_ADAM
             )
 
 
