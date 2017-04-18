@@ -61,7 +61,8 @@ netw.compile(
     lr=0.0000001,
     batch_size=1024,
     cache_size=(10240, n_in, n_out),
-    use_ADAM=True
+    use_ADAM=True,
+    loss=network.cross_entropy_vector_loss
 )
 
 ########################################################################
@@ -89,9 +90,9 @@ for i in range(1000):
     # save snapshot every 100 epochs
     if (i % 100) == 0:
         log.info('epoch %d: saving model snapshot', i)
-        netw.save('model_02.{}.h5'.format(i))
+        netw.save('model_05.{}.h5'.format(i))
 
 # final snapshot
 log.info('Saving final model snapshot')
-netw.save('model_02.final.h5')
+netw.save('model_05.final.h5')
 

@@ -58,10 +58,11 @@ netw.add(network.LinearTransformation((1000, n_out), l2=0.001))
 netw.add(network.Sigmoid())
 netw.add(network.ScaleOffset(scale=255.0))
 netw.compile(
-    lr=0.0000001,
+    momentum=0.5,
     batch_size=1024,
     cache_size=(10240, n_in, n_out),
-    use_ADAM=True
+    use_ADAM=False,
+    loss=network.cross_entropy_vector_loss
 )
 
 ########################################################################
@@ -89,9 +90,9 @@ for i in range(1000):
     # save snapshot every 100 epochs
     if (i % 100) == 0:
         log.info('epoch %d: saving model snapshot', i)
-        netw.save('model_02.{}.h5'.format(i))
+        netw.save('model_04.{}.h5'.format(i))
 
 # final snapshot
 log.info('Saving final model snapshot')
-netw.save('model_02.final.h5')
+netw.save('model_04.final.h5')
 
