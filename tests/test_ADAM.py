@@ -56,12 +56,13 @@ mlp.train(
     datay,
     val_data=(validx, validy),
     n_epochs=50,
+    savepath='test_model_3.h5'
 )
 
-mlp.save('test_model_3.h5')
-
 print '-> Testing the model'
-    
+
+mlp.load('test_model_3.h5')
+
 isort = np.argsort(testx[:,0])
 x = testx[isort] 
 y = testy[isort]

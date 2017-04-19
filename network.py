@@ -687,6 +687,7 @@ class Network(object):
     def __init__(self):
         self.layers = []
         self.parameters = []
+        self.best_vloss = np.inf
 
     def __call__(self, X):
         return self.__test_fun(X)
@@ -740,7 +741,8 @@ class Network(object):
               Y,
               val_data,
               n_epochs,
-              start_epoch=0):
+              start_epoch=0,
+              savepath=None):
 
         for epoch in range(start_epoch, start_epoch + n_epochs):
 
@@ -760,6 +762,15 @@ class Network(object):
                 loss,
                 vloss,
             )
+
+            if (savepath is not None) and (vloss < self.best_vloss):
+                log.info(
+                    'epoch %d: validation loss improved, saving model (%s)',
+                    epoch,
+                    savepath
+                )
+                self.best_vloss = vloss
+                self.save(savepath)
 
     def __run_training_epoch(self, X, Y, epoch):
         losses = []

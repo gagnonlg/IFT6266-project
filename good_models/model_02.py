@@ -76,7 +76,8 @@ for i in range(1000):
         Y=h5dataset['train/target'],
         val_data=vdataset,
         n_epochs=1,
-        start_epoch=i
+        start_epoch=i,
+        savepath='model_02.best.h5'
     )
 
     log.info('epoch %d: testing pass', i)
@@ -85,13 +86,3 @@ for i in range(1000):
     img = dataset.reconstruct_from_flat(xt, b[0]).astype(np.uint8)
     PIL.Image.fromarray(img).save('test_image_{}.jpg'.format(i))
     subprocess.call(['cp', 'test_image_{}.jpg'.format(i), imgdir])
-
-    # save snapshot every 100 epochs
-    if (i % 100) == 0:
-        log.info('epoch %d: saving model snapshot', i)
-        netw.save('model_02.{}.h5'.format(i))
-
-# final snapshot
-log.info('Saving final model snapshot')
-netw.save('model_02.final.h5')
-
