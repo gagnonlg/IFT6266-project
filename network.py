@@ -1020,3 +1020,48 @@ class Network(object):
             on_unused_input='warn'
         )
 
+def train_GAN(G,
+              D,
+              batch_size,
+              k_steps,
+              n_epochs,
+              steps_per_epoch,
+              data_gen,
+              v_data_gen,
+              z_prior):
+    """ Train a generative adversarial network
+
+    Arguments:
+      G: the compiled generator network
+      D: the compiled discriminator network
+      batch_size: batch size
+      k_steps: number of training steps for the discriminator
+                for each generator training step
+      n_epochs: number of training epochs
+      steps_per_epochs: number of steps before changing epoch, where one step corresponds
+                        to k_steps of discriminator training and 1 step of generator training
+      data_gen: python function accepting size argument return
+                generator yielding chunks of data of requested size
+      v_data_gen: same as data_gen but from validation set
+      z_prior: function with size arguments yielding the requested number of 
+               vectors from the prior over z space
+    """
+
+    data_stream = data_gen(batch_size * k_steps)
+    v_data_stream = v_data_gen(batch_size * k_steps)
+    
+    for epoch in range(n_epochs):
+        log.warning('epoch %d', epoch)
+        for i in range(steps_per_epoch):
+
+            X = data_stream.next()
+            GZ = G(z_prior(batch_size * k_steps))
+
+            VX = v_data_stream.next()
+            VGZ = G(z_prior(batch_size * k_steps))
+
+            D.train(X=X, Y=GZ, val_data=(VX, VGZ), n_epochs=1, start_epoch=epoch)
+
+            Z = z_prior(batch_size)
+            VZ = z_prior(batch_size)
+            G.train(X=Z, Y=G(Z), val_data=(Z,G(VZ)), n_epochs=1)
