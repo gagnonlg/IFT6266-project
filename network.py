@@ -684,10 +684,11 @@ class BatchNorm(Layer):
 # Network <=> a collection of layers
 class Network(object):
 
-    def __init__(self):
+    def __init__(self, is_GAN_discriminator=False):
         self.layers = []
         self.parameters = []
         self.best_vloss = np.inf
+        self.is_GAN_discriminator = is_GAN_discriminator
 
     def __call__(self, X):
         return self.__test_fun(X)
@@ -862,7 +863,13 @@ class Network(object):
         return netw
 
     def __loss(self, X, Y):
-        loss = self.loss(self.training_expression(X), Y)
+        if self.is_GAN_discriminator is not None:
+            loss = self.loss(
+                self.training_expression(X),
+                self.training_expression(Y)
+            )
+        else:
+            loss = self.loss(self.training_expression(X), Y)
         for regl in [lyr.reg_loss() for lyr in self.layers]:
             loss = loss + regl
         return loss
@@ -1009,5 +1016,7 @@ class Network(object):
                 X: self.X_cache[bound0:bound1],
                 Y: self.Y_cache[bound0:bound1]
             },
-            allow_input_downcast=True
+            allow_input_downcast=True,
+            on_unused_input='warn'
         )
+

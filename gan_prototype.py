@@ -1,6 +1,7 @@
 import logging
-logging.basicConfig(level='INFO')
+logging.basicConfig(level='WARNING')
 
+import matplotlib.pyplot as plt
 import numpy as np
 import theano.tensor as T
 
@@ -15,7 +16,7 @@ def gen_data(N):
     ]
     return np.random.multivariate_normal(mean, cov, N)
 
-trainX = gen_data(1280 * 100)
+trainX = gen_data(32000)
 
 print '-> Defining discriminator'
 discriminator = network.Network(is_GAN_discriminator=True)
@@ -26,18 +27,19 @@ discriminator.add(network.Sigmoid())
 
 print '-> Defining generator'
 generator = network.Network()
-generator.add(network.LinearTransformation((100, 10)))
+generator.add(network.LinearTransformation((10, 100)))
 generator.add(network.ReLU())
-generator.add(network.LinearTransformation((10, 2)))
+generator.add(network.LinearTransformation((100, 2)))
 
 print '-> Compiling discriminator'
 
 def discriminator_GAN_loss(x, y):
-    return T.mean(T.log(x) + T.log(1 - y))
+    return - T.mean(T.log(x) + T.log(1 - y))
 
 discriminator.compile(
-    batch_size=128,
-    cache_size=(1280, 2, 2),
+    lr=0.001,
+    batch_size=32,
+    cache_size=(320, 2, 2),
     loss=discriminator_GAN_loss,
     use_ADAM=False
 )
@@ -45,19 +47,20 @@ discriminator.compile(
 print '-> Compiling the generator'
 
 def generator_GAN_loss(x, y):
-    return T.mean(T.log(discriminator.expression(x)))
+    return - T.mean(T.log(discriminator.expression(x)))
 
 generator.compile(
-    batch_size=128,
-    cache_size=(128, 100, 2),
+    lr=0.01,
+    batch_size=32,
+    cache_size=(32, 10, 2),
     loss=generator_GAN_loss,
     use_ADAM=False,
 )
 
-for epoch in range(10):
-    for i in range(int(trainX.shape[0] / 1280.0)):
-        X = trainX[i*1280:(i+1)*1280].astype('float32')
-        Y = generator(np.random.uniform(size=(1280, 100)))
+for epoch in range(100):
+    for i in range(int(trainX.shape[0] / 320.0)):
+        X = trainX[i*320:(i+1)*320].astype('float32')
+        Y = generator(np.random.uniform(size=(320, 10)))
 
         discriminator.train(
             X=X,
@@ -66,7 +69,7 @@ for epoch in range(10):
             n_epochs=1
         )
 
-        X = np.random.uniform(size=(128, 100)).astype('float32')
+        X = np.random.uniform(size=(32, 10)).astype('float32')
 
         generator.train(
             X=X,
@@ -79,5 +82,7 @@ for epoch in range(10):
     print generator(X[:10])
 
     
-
-
+plt.scatter(trainX[:100,0], trainX[:100,1], color='b')
+gx = generator(np.random.uniform(size=(100,10)))
+plt.scatter(gx[:,0], gx[:,1], color='r')
+plt.savefig('gan_test.png')
