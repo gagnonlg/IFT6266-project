@@ -1044,8 +1044,9 @@ def train_GAN(G,
               n_epochs,
               steps_per_epoch,
               data_gen,
-              v_data_gen,
-              z_prior):
+              z_prior_gen,
+              D_savepath=None,
+              G_savepath=None):
     """ Train a generative adversarial network
 
     Arguments:
@@ -1057,31 +1058,50 @@ def train_GAN(G,
       n_epochs: number of training epochs
       steps_per_epochs: number of steps before changing epoch, where one step corresponds
                         to k_steps of discriminator training and 1 step of generator training
-      data_gen: python function accepting size argument return
-                generator yielding chunks of data of requested size
-      v_data_gen: same as data_gen but from validation set
-      z_prior: function with size arguments yielding the requested number of 
-               vectors from the prior over z space
+      data_gen: pair of python functions accepting size argument returning
+                generator yielding chunks of data of requested size. (train, validation)
+      z_prior_gen: same as data_gen but for prior over z-space
     """
 
-    data_stream = data_gen(batch_size * k_steps)
-    v_data_stream = v_data_gen(batch_size * k_steps)
+    data_stream = data_gen[0](batch_size * k_steps)
+    v_data_stream = data_gen[1](batch_size * k_steps)
+
+    d_z_stream = z_prior_gen[0](batch_size * k_steps)
+    v_d_z_stream = z_prior_gen[1](batch_size * k_steps)
+
+    
+    z_stream = z_prior_gen[0](batch_size)
+    v_z_stream = z_prior_gen[1](batch_size)
     
     for epoch in range(n_epochs):
         log.warning('epoch %d', epoch)
         for i in range(steps_per_epoch):
 
             X = data_stream.next()
-            GZ = G(z_prior(batch_size * k_steps))
+            GZ = G(d_z_stream.next())
 
             VX = v_data_stream.next()
-            VGZ = G(z_prior(batch_size * k_steps))
+            VGZ = G(v_d_z_stream.next())
 
-            D.train(X=X, Y=GZ, val_data=(VX, VGZ), n_epochs=1, start_epoch=epoch)
+            D.train(
+                X=X,
+                Y=GZ,
+                val_data=(VX, VGZ),
+                n_epochs=1,
+                start_epoch=epoch,
+                savepath=D_savepath
+            )
 
-            Z = z_prior(batch_size)
-            VZ = z_prior(batch_size)
-            G.train(X=Z, Y=G(Z), val_data=(Z,G(VZ)), n_epochs=1, start_epoch=epoch)
+            Z = z_gen.next()
+            VZ = v_z_gen.next()
+            G.train(
+                X=Z,
+                Y=G(Z),
+                val_data=(Z,G(VZ)),
+                n_epochs=1,
+                start_epoch=epoch,
+                savepath=G_savepath
+            )
 
 def get_pickled_attr(grp, key, default=None):
     if key in grp.attrs:
