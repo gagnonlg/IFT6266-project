@@ -684,11 +684,13 @@ class BatchNorm(Layer):
 # Network <=> a collection of layers
 class Network(object):
 
-    def __init__(self, is_GAN_discriminator=False):
+    def __init__(self, is_GAN_discriminator=False, copy_input=None):
         self.layers = []
         self.parameters = []
         self.best_vloss = np.inf
-        self.is_GAN_discriminator = is_GAN_discriminator
+        self.is_GAN_discriminator = is_GAN_discriminator # FIXME save/load
+        self.copy_input = copy_input
+        
 
     def __call__(self, X):
         return self.__test_fun(X)
@@ -724,17 +726,26 @@ class Network(object):
         self.__valid_fun = self.__make_validation_function()
 
 
+    def __maybe_copy_input(self, input, output):
+        if self.copy_input is None:
+            return output
+        else:
+            return T.concatenate(
+                [input[:,self.copy_input[0]:self.copy_input[1]], output],
+                axis=1
+            )
+
     def training_expression(self, X):
         tensor = X
         for i, layer in enumerate(self.layers):
             tensor = layer.training_expression(tensor)
-        return tensor
+        return self.__maybe_copy_input(X, tensor)
 
     def expression(self, X):
         tensor = X
         for i, layer in enumerate(self.layers):
             tensor = layer.expression(tensor)
-        return tensor
+        return self.__maybe_copy_input(X, tensor)
 
 
     def train(self,
@@ -819,6 +830,7 @@ class Network(object):
             grp.attrs['loss'] = np.void(cPickle.dumps(self.loss))
             grp.attrs['vartype'] = np.void(cPickle.dumps((self.vartypeX, self.vartypeY)))
             grp.attrs['cache_size'] = np.void(cPickle.dumps(self.cache_size))
+            grp.attrs['copy_input'] = np.void(cPickle.dumps(self.copy_input))
 
             grp.create_dataset('use_ADAM', data=1.0 if self.use_ADAM else 0.0)
             grp.create_dataset('lr', data=self.lr)
@@ -828,8 +840,17 @@ class Network(object):
 
     @staticmethod
     def load(path):
-        netw = Network()
+
         with h5.File(path, 'r') as savefile:
+
+            grp = savefile['Network']
+
+            if 'copy_input' in grp:
+                copy_input = cPickle.loads(grp.attrs['copy_input'].tostring())
+            else:
+                copy_input = None
+                
+            netw = Network(copy_input=copy_input)
 
             ikeys = []
             for key in savefile.keys():
@@ -841,8 +862,6 @@ class Network(object):
             for _, type, key in sorted(ikeys):
                 log.debug('loading layer type: %s', type)
                 netw.add(globals()[type].load(savefile[key]))
-
-            grp = savefile['Network']
 
             if 'use_ADAM' in grp:
                 use_ADAM = grp['use_ADAM'].value == 1,
