@@ -1081,7 +1081,7 @@ def train_GAN(G,
 
             Z = z_prior(batch_size)
             VZ = z_prior(batch_size)
-            G.train(X=Z, Y=G(Z), val_data=(Z,G(VZ)), n_epochs=1)
+            G.train(X=Z, Y=G(Z), val_data=(Z,G(VZ)), n_epochs=1, start_epoch=epoch)
 
 def get_pickled_attr(grp, key, default=None):
     if key in grp.attrs:
