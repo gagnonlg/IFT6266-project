@@ -688,7 +688,7 @@ class Network(object):
         self.layers = []
         self.parameters = []
         self.best_vloss = np.inf
-        self.is_GAN_discriminator = is_GAN_discriminator # FIXME save/load
+        self.is_GAN_discriminator = is_GAN_discriminator
         self.copy_input = copy_input
         
 
@@ -831,12 +831,12 @@ class Network(object):
             grp.attrs['vartype'] = np.void(cPickle.dumps((self.vartypeX, self.vartypeY)))
             grp.attrs['cache_size'] = np.void(cPickle.dumps(self.cache_size))
             grp.attrs['copy_input'] = np.void(cPickle.dumps(self.copy_input))
+            grp.attrs['is_GAN_discriminator'] = np.void(cPickle.dumps(self.is_GAN_discriminator))
 
             grp.create_dataset('use_ADAM', data=1.0 if self.use_ADAM else 0.0)
             grp.create_dataset('lr', data=self.lr)
             grp.create_dataset('momentum', data=self.momentum)
             grp.create_dataset('batch_size', data=self.batch_size)
-
 
     @staticmethod
     def load(path):
@@ -845,12 +845,10 @@ class Network(object):
 
             grp = savefile['Network']
 
-            if 'copy_input' in grp:
-                copy_input = cPickle.loads(grp.attrs['copy_input'].tostring())
-            else:
-                copy_input = None
-                
-            netw = Network(copy_input=copy_input)
+            netw = Network(
+                is_GAN_discriminator=get_pickled_attr(grp, 'is_GAN_discriminator', False),
+                copy_input=get_pickled_attr(grp, 'copy_input', None)
+            )
 
             ikeys = []
             for key in savefile.keys():
@@ -1084,3 +1082,10 @@ def train_GAN(G,
             Z = z_prior(batch_size)
             VZ = z_prior(batch_size)
             G.train(X=Z, Y=G(Z), val_data=(Z,G(VZ)), n_epochs=1)
+
+def get_pickled_attr(grp, key, default=None):
+    if key in grp.attrs:
+        return cPickle.loads(grp.attrs[key].tostring())
+    else:
+        return default
+        
