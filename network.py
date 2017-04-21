@@ -882,7 +882,7 @@ class Network(object):
         return netw
 
     def __loss(self, X, Y):
-        if self.is_GAN_discriminator is not None:
+        if self.is_GAN_discriminator:
             loss = self.loss(
                 self.training_expression(X),
                 self.training_expression(Y)
