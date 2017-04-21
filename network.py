@@ -1092,8 +1092,8 @@ def train_GAN(G,
                 savepath=D_savepath
             )
 
-            Z = z_gen.next()
-            VZ = v_z_gen.next()
+            Z = z_stream.next()
+            VZ = v_z_stream.next()
             G.train(
                 X=Z,
                 Y=G(Z),
