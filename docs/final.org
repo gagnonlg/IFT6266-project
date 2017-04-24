@@ -1,0 +1,18 @@
+* Introduction
+* The code
+** Dataset
+** Layers
+** The "Network" class
+** Generative Adversarial Network (GAN) training
+** Validation
+** Theano experience
+** Hades setup
+* Results
+** Kullback-Leibler divergence between border and center
+** First trainings: dense MLPs
+** Failed experiment with convolutions
+** Why I didn't experiment further with convolution/deconvolution
+** Why I didn't use the captions
+** GAN results
+* Conclusion
+** Kudos to other approaches
