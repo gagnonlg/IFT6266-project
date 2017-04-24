@@ -94,7 +94,8 @@ def generator_GAN_loss(x, y):
 gnetw.compile(
     batch_size=1024,
     cache_size=(1024, n_in + n_z, n_in + n_out),
-    use_ADAM=True
+    use_ADAM=True,
+    loss=generator_GAN_loss
 )
 
 ########################################################################
