@@ -100,30 +100,6 @@ gnetw.compile(
 ########################################################################
 log.info('Training model')
 
-def z_prior_gen(size):
-    xdset = h5dataset['train/input']
-    
-    while True:
-        for idx in network.grouper(range(xdset.shape[0]), size):
-            idx_ = filter(lambda n: n is not None, idx)
-            i0 = idx_[0]
-            i1 = idx_[-1]
-            zs = np.random.uniform(size=(size, n_z)).astype('float32')
-            yield np.concatenate([xdset[i0:i1], zs], axis=1)
-
-def v_z_prior_gen(size):
-    xdset = h5dataset['val/input']
-    
-    while True:
-        for idx in network.grouper(range(xdset.shape[0]), size):
-            idx_ = filter(lambda n: n is not None, idx)
-            i0 = idx_[0]
-            i1 = idx_[-1]
-            zs = np.random.uniform(size=(size, n_z)).astype('float32')
-            yield np.concatenate([xdset[i0:i1], zs], axis=1)
-
-
-
 def data_gen(dset):
 
     def __gen(size):
@@ -151,8 +127,11 @@ def z_prior_gen(dset):
                 idx_ = filter(lambda n: n is not None, idx)
                 i0 = idx_[0]
                 i1 = idx_[-1]
-                zs = np.random.uniform(size=(i1-i0, n_z)).astype('float32')
-                yield np.concatenate([xdset[i0:i1], zs], axis=1)
+                subt = xdset[i0:i1]
+                zs = np.random.uniform(size=(subt.shape[0], n_z)).astype(
+                    'float32'
+                )
+                yield np.concatenate([subt, zs], axis=1)
                 
     return __gen
 

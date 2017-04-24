@@ -1097,7 +1097,7 @@ def train_GAN(G,
             G.train(
                 X=Z,
                 Y=G(Z),
-                val_data=(Z,G(VZ)),
+                val_data=(VZ,G(VZ)),
                 n_epochs=1,
                 start_epoch=epoch,
                 savepath=G_savepath
