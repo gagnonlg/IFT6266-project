@@ -103,25 +103,25 @@ log.info('Training model')
 def data_gen(dset):
 
     def __gen(size):
-    
+
         xdset = h5dataset[dset+'/input']
         ydset = h5dataset[dset+'/target']
-             
+
         while True:
             for idx in network.grouper(range(xdset.shape[0]), size):
                 idx_ = filter(lambda n: n is not None, idx)
                 i0 = idx_[0]
                 i1 = idx_[-1]
                 yield np.concatenate([xdset[i0:i1], ydset[i0:i1]], axis=1)
-                
+
     return __gen
 
 def z_prior_gen(dset):
 
     def __gen(size):
-    
+
         xdset = h5dataset[dset+'/input']
-             
+
         while True:
             for idx in network.grouper(range(xdset.shape[0]), size):
                 idx_ = filter(lambda n: n is not None, idx)
@@ -132,10 +132,10 @@ def z_prior_gen(dset):
                     'float32'
                 )
                 yield np.concatenate([subt, zs], axis=1)
-                
+
     return __gen
 
-            
+
 network.train_GAN(
     G=gnetw,
     D=dnetw,
@@ -145,6 +145,9 @@ network.train_GAN(
     steps_per_epoch=(h5dataset['train/input'].shape[0] / 1024),
     data_gen=(data_gen('train'), data_gen('val')),
     z_prior_gen=(z_prior_gen('train'), z_prior_gen('val')),
-    G_savepath='model_07.generator.h5',
-    D_savepath='model_07.discriminator.h5'
+    G_savepath='model_07.generator.best.h5',
+    D_savepath='model_07.discriminator.best.h5'
 )
+
+gnetw.save('model_07.generator.final.h5')
+dnetw.save('model_07.discriminator.final.h5')
