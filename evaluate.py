@@ -18,6 +18,7 @@ def get_args():
     args.add_argument('--model', required=True)
     args.add_argument('--data', required=True)
     args.add_argument('--log')
+    args.add_argument('--GAN', action='store_true')
     return args.parse_args()
 
 def montage(borders, centers, outpath):
@@ -67,9 +68,9 @@ def entropy(borders, centers, outpath):
     plt.ylabel('Images')
     plt.savefig(outpath)
     plt.close()
-            
+
 def main():
-    
+
     fmt = '[%(asctime)s] %(name)s %(levelname)s %(message)s'
     logging.basicConfig(level='INFO', format=fmt)
     log = logging.getLogger('evaluate.py')
@@ -81,7 +82,15 @@ def main():
 
     log.info('Generating test images')
     borders = data['val/input'][:1000]
-    centers = model(borders)
+    if args.GAN:
+        centers = model(
+            np.concatenate(
+                [borders, np.random.uniform(size=(1000, 2000)).astype('float32')],
+                axis=1
+            )
+        )[:,borders.shape[1]:]
+    else:
+        centers = model(borders)
 
     log.info('Measuring KL divergence')
     entropy(borders, centers, args.model.replace('.h5', '.entropy.jpg'))
@@ -97,7 +106,7 @@ def main():
         log.info('Creating loss curves')
         out = args.model.replace('.h5', '') + '.loss.jpg'
         loss_curves(args.log, out)
-    
+
 
 if __name__ == '__main__':
     main()

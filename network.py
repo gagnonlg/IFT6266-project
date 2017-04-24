@@ -227,7 +227,7 @@ class LSTM(Layer):
     def save(self, h5grp):
 
         n_step = -1 if self.n_step is None else n_step
-        
+
         h5grp.create_dataset('n_feature', data=self.n_feature)
         h5grp.create_dataset('n_state', data=self.n_state)
         h5grp.create_dataset('last_state_only', data=self.last_state_only)
@@ -276,7 +276,7 @@ class LSTM(Layer):
         layer.b_a.set_value(h5grp['b_a'].value)
 
         return layer
-        
+
 
 class Recurrent(Layer):
 
@@ -594,7 +594,7 @@ class LinearTransformation(Layer):
         layer.W.set_value(h5grp['W'].value)
         layer.b.set_value(h5grp['b'].value)
         return layer
-        
+
 
     def reg_loss(self):
         return self.l2 * self.W.norm(2)
@@ -655,7 +655,7 @@ class BatchNorm(Layer):
         layer.online_mean.set_value(h5grp['online_mean'].value)
         layer.online_variance.set_value(h5grp['online_variance'].value)
         return layer
-        
+
     def expression(self, X):
         normd = (X - self.online_mean) / T.sqrt(self.online_variance + 0.001)
         return self.gamma * normd + self.beta
@@ -690,7 +690,7 @@ class Network(object):
         self.best_vloss = np.inf
         self.is_GAN_discriminator = is_GAN_discriminator
         self.copy_input = copy_input
-        
+
 
     def __call__(self, X):
         return self.__test_fun(X)
@@ -709,7 +709,7 @@ class Network(object):
                 use_ADAM=False):
 
         self.use_ADAM = use_ADAM
-        
+
         self.loss = loss
 
         self.vartypeX = vartype[0]
@@ -856,7 +856,7 @@ class Network(object):
                     continue
                 fields = key.split(':')
                 ikeys.append((int(fields[0]), fields[1], key))
-            
+
             for _, type, key in sorted(ikeys):
                 log.debug('loading layer type: %s', type)
                 netw.add(globals()[type].load(savefile[key]))
@@ -865,14 +865,21 @@ class Network(object):
                 use_ADAM = grp['use_ADAM'].value == 1,
             else:
                 use_ADAM = False
-                
+
+            try:
+                loss = cPickle.loads(grp.attrs['loss'].tostring()),
+            except AttributeError as excpt:
+                log.warning('could not load loss: %s', excpt)
+                log.warning('substituting MSE')
+                loss = mse_loss
+
             netw.compile(
                 lr=np.float32(grp['lr'].value),
                 momentum=np.float32(grp['momentum'].value),
                 batch_size=grp['batch_size'].value,
                 cache_size=cPickle.loads(grp.attrs['cache_size'].tostring()),
                 vartype=cPickle.loads(grp.attrs['vartype'].tostring()),
-                loss=cPickle.loads(grp.attrs['loss'].tostring()),
+                loss=loss,
                 use_ADAM=use_ADAM
             )
 
@@ -952,7 +959,7 @@ class Network(object):
 
 
         if adam:
-            
+
             f1 = 1.0 / (1 - T.pow(rho1, t + 1))
             m_1_updates = [
                 (m, rho1 * m + (1 - rho1) * g)
@@ -972,7 +979,7 @@ class Network(object):
             ]
 
             updates = m_1_updates + m_2_updates + p_updates
-            
+
         else:
 
             # will be used if not ADAM
@@ -988,7 +995,7 @@ class Network(object):
 
             updates = v_updates + p_updates
 
-            
+
         for upd in [lyr.updates() for lyr in self.layers]:
             updates += upd
 
@@ -1069,10 +1076,10 @@ def train_GAN(G,
     d_z_stream = z_prior_gen[0](batch_size * k_steps)
     v_d_z_stream = z_prior_gen[1](batch_size * k_steps)
 
-    
+
     z_stream = z_prior_gen[0](batch_size)
     v_z_stream = z_prior_gen[1](batch_size)
-    
+
     for epoch in range(n_epochs):
         log.warning('epoch %d', epoch)
         for i in range(steps_per_epoch):
@@ -1108,4 +1115,3 @@ def get_pickled_attr(grp, key, default=None):
         return cPickle.loads(grp.attrs[key].tostring())
     else:
         return default
-        
