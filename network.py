@@ -556,7 +556,7 @@ class Clip(Layer):
 class LinearTransformation(Layer):
     """ Linear transformation of the form X * W + b """
 
-    def __init__(self, shape, l2=0.0):
+    def __init__(self, shape, l2=0.0, l1=0.0):
         """ Linear transformation of the form X * W + b
 
         Arguments:
@@ -564,6 +564,7 @@ class LinearTransformation(Layer):
         """
 
         self.l2 = l2
+        self.l1 = l1
         self.shape = shape
         n_in, n_out = self.shape
 
@@ -586,6 +587,7 @@ class LinearTransformation(Layer):
         h5grp.create_dataset('shape', data=self.shape)
         h5grp.create_dataset('W', data=self.W.get_value())
         h5grp.create_dataset('b', data=self.b.get_value())
+        h5grp.create_dataset('l1', data=self.l1)
 
     @staticmethod
     def load(h5grp):
@@ -593,11 +595,17 @@ class LinearTransformation(Layer):
         layer.l2 = np.float32(h5grp['l2'].value)
         layer.W.set_value(h5grp['W'].value)
         layer.b.set_value(h5grp['b'].value)
+
+        if 'l1' in h5grp:
+            layer.l1 = np.float32(h5grp['l1'].value)
+
         return layer
 
 
     def reg_loss(self):
-        return self.l2 * self.W.norm(2)
+        l2 = self.l2 * self.W.norm(2)
+        l1 = self.l1 * self.W.norm(1)
+        return l2 + l1
 
     def expression(self, X):
         """ Create a symbolic expression X * W + b """
