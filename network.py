@@ -867,7 +867,7 @@ class Network(object):
                 use_ADAM = False
 
             try:
-                loss = cPickle.loads(grp.attrs['loss'].tostring()),
+                loss = cPickle.loads(grp.attrs['loss'].tostring())
             except AttributeError as excpt:
                 log.warning('could not load loss: %s', excpt)
                 log.warning('substituting MSE')
