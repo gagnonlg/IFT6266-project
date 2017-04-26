@@ -69,6 +69,11 @@ test_layer_id(network.Tanh())
 test_layer_id(network.Sigmoid())
 test_layer_id(network.Softmax())
 test_layer_id(network.Dropout(0.75))
+np.testing.assert_raises(
+    AssertionError,
+    test_layer_id,
+    network.Dropout(0.75, at_test_time=True),
+)
 test_layer_id(network.ScaleOffset(scale=100.0, offset=-750))
 test_layer_id(network.Clip(0.1,0.2))
 test_layer_id(network.BatchNorm(n_input=2))

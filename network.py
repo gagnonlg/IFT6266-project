@@ -488,13 +488,14 @@ class MaxPool(Layer):
         )
 
 class Dropout(Layer):
-    def __init__(self, drop_prob, rng=None):
+    def __init__(self, drop_prob, rng=None, at_test_time=False):
         if rng is None:
             self.rng = T.shared_randomstreams.RandomStreams()
         else:
             self.rng = rng
 
         self.keep_prob = 1 - drop_prob
+        self.at_test_time = at_test_time
 
     def training_expression(self, X):
         self.stream = self.rng.uniform(size=X.shape)
@@ -502,14 +503,21 @@ class Dropout(Layer):
         return self.mask * X
 
     def expression(self, X):
-        return X * self.keep_prob
+        if self.at_test_time:
+            return self.training_expression(X)
+        else:
+            return X * self.keep_prob
 
     def save(self, h5grp):
         h5grp.create_dataset('keep_prob', data=self.keep_prob)
+        h5grp.attrs['at_test_time'] = self.at_test_time
 
     @staticmethod
     def load(h5grp):
-        return Dropout(drop_prob=(1 - h5grp['keep_prob'].value))
+        return Dropout(
+            drop_prob=(1 - h5grp['keep_prob'].value),
+            at_test_time=('at_test_time' in h5grp.attrs and h5grp.attrs['at_test_time'])
+        )
 
 
 class ScaleOffset(Layer):
