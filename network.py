@@ -31,6 +31,9 @@ def cross_entropy_vector_loss(x, y):
     f = 1.0 / 255
     return T.mean(T.nnet.binary_crossentropy(f*x, f*y).sum(axis=1))
 
+def binary_cross_entropy_loss(x, y):
+    return T.mean(T.nnet.binary_cross_entropy(x, y))
+
 ########################################################################
 # LAYERS
 
