@@ -64,6 +64,7 @@ def test_layer(layer, gen_data):
 test_layer_id = lambda l: test_layer(l, gen_data_id)
 test_layer_id(network.Layer())
 test_layer_id(network.ReLU())
+test_layer_id(network.ReLU(alpha=0.2))
 test_layer_id(network.Tanh())
 test_layer_id(network.Sigmoid())
 test_layer_id(network.Softmax())

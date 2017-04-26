@@ -616,8 +616,21 @@ class LinearTransformation(Layer):
 
 
 class ReLU(Layer):
+    def __init__(self, alpha=0.0):
+        self.alpha = alpha
+
     def expression(self, X):
-        return T.nnet.relu(X)
+        return T.nnet.relu(X, self.alpha)
+
+    def save(self, h5grp):
+        h5grp.create_dataset('alpha', data=self.alpha)
+
+    @staticmethod
+    def load(h5grp):
+        if 'alpha' in h5grp:
+            return ReLU(np.float32(h5grp['alpha'].value))
+        else:
+            return ReLU()
 
 class Tanh(Layer):
     def expression(self, X):
