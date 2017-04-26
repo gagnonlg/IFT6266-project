@@ -32,7 +32,7 @@ def cross_entropy_vector_loss(x, y):
     return T.mean(T.nnet.binary_crossentropy(f*x, f*y).sum(axis=1))
 
 def binary_cross_entropy_loss(x, y):
-    return T.mean(T.nnet.binary_cross_entropy(x, y))
+    return T.mean(T.nnet.binary_crossentropy(x, y))
 
 ########################################################################
 # LAYERS
@@ -716,11 +716,10 @@ class BatchNorm(Layer):
 # Network <=> a collection of layers
 class Network(object):
 
-    def __init__(self, is_GAN_discriminator=False, copy_input=None):
+    def __init__(self, copy_input=None):
         self.layers = []
         self.parameters = []
         self.best_vloss = np.inf
-        self.is_GAN_discriminator = is_GAN_discriminator
         self.copy_input = copy_input
 
 
@@ -863,7 +862,6 @@ class Network(object):
             grp.attrs['vartype'] = np.void(cPickle.dumps((self.vartypeX, self.vartypeY)))
             grp.attrs['cache_size'] = np.void(cPickle.dumps(self.cache_size))
             grp.attrs['copy_input'] = np.void(cPickle.dumps(self.copy_input))
-            grp.attrs['is_GAN_discriminator'] = np.void(cPickle.dumps(self.is_GAN_discriminator))
 
             grp.create_dataset('use_ADAM', data=1.0 if self.use_ADAM else 0.0)
             grp.create_dataset('lr', data=self.lr)
@@ -878,7 +876,6 @@ class Network(object):
             grp = savefile['Network']
 
             netw = Network(
-                is_GAN_discriminator=get_pickled_attr(grp, 'is_GAN_discriminator', False),
                 copy_input=get_pickled_attr(grp, 'copy_input', None)
             )
 
@@ -919,13 +916,7 @@ class Network(object):
         return netw
 
     def __loss(self, X, Y):
-        if self.is_GAN_discriminator:
-            loss = self.loss(
-                self.training_expression(X),
-                self.training_expression(Y)
-            )
-        else:
-            loss = self.loss(self.training_expression(X), Y)
+        loss = self.loss(self.training_expression(X), Y)
         for regl in [lyr.reg_loss() for lyr in self.layers]:
             loss = loss + regl
         return loss
@@ -1116,27 +1107,38 @@ def train_GAN(G,
         log.warning('epoch %d', epoch)
         for i in range(steps_per_epoch):
 
-            X = data_stream.next()
-            GZ = G(d_z_stream.next())
 
-            VX = v_data_stream.next()
-            VGZ = G(v_d_z_stream.next())
-
+            # train D on data
+            X, Y = data_stream.next()
+            VX, VY = v_data_stream.next()
             D.train(
                 X=X,
-                Y=GZ,
-                val_data=(VX, VGZ),
+                Y=Y,
+                val_data=(VX, VY),
                 n_epochs=1,
                 start_epoch=epoch,
                 savepath=D_savepath
             )
 
-            Z = z_stream.next()
-            VZ = v_z_stream.next()
+            # train D on generated
+            Z, Y = d_z_stream.next()
+            VZ, VY = v_d_z_stream.next()
+            D.train(
+                X=G(Z),
+                Y=Y,
+                val_data=(G(VZ), VY),
+                n_epochs=1,
+                start_epoch=epoch,
+                savepath=D_savepath
+            )
+
+            # train G
+            Z, Y = z_stream.next()
+            VZ, VY = v_z_stream.next()
             G.train(
                 X=Z,
-                Y=G(Z),
-                val_data=(VZ,G(VZ)),
+                Y=np.ones_like(Y),
+                val_data=(VZ, np.ones_like(VY)),
                 n_epochs=1,
                 start_epoch=epoch,
                 savepath=G_savepath
