@@ -77,7 +77,7 @@ def main():
 
     args = get_args()
     log.info('Loading model')
-    model = network.Network.load(args.model)
+    model = network.Network.load(args.model, test_only=True)
     data = h5.File(args.data, 'r')
 
     log.info('Generating test images')
