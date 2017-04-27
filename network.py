@@ -761,11 +761,12 @@ class BatchNorm(Layer):
 # Network <=> a collection of layers
 class Network(object):
 
-    def __init__(self, copy_input=None):
+    def __init__(self, copy_input=None, paint_center=False):
         self.layers = []
         self.parameters = []
         self.best_vloss = np.inf
         self.copy_input = copy_input
+        self.paint_center = paint_center
 
 
     def __call__(self, X):
@@ -807,13 +808,16 @@ class Network(object):
 
 
     def __maybe_copy_input(self, input, output):
-        if self.copy_input is None:
-            return output
-        else:
+        if self.copy_input:
             return T.concatenate(
                 [input[:,self.copy_input[0]:self.copy_input[1]], output],
                 axis=1
             )
+        elif self.paint_center:
+            # input shape: batch, 3, 64, 64
+            return T.set_subtensor(input[:, :, 16:48, 16:48], output)
+
+        return output
 
     def training_expression(self, X):
         tensor = X
@@ -907,6 +911,7 @@ class Network(object):
                 lyr.save(grp)
 
             grp = savefile.create_group('Network')
+            grp.attrs['paint_center'] = self.paint_center
             grp.attrs['loss'] = np.void(cPickle.dumps(self.loss))
             grp.attrs['vartype'] = np.void(cPickle.dumps((self.vartypeX, self.vartypeY)))
             grp.attrs['cache_size'] = np.void(cPickle.dumps(self.cache_size))
@@ -926,7 +931,8 @@ class Network(object):
             grp = savefile['Network']
 
             netw = Network(
-                copy_input=get_pickled_attr(grp, 'copy_input', None)
+                copy_input=get_pickled_attr(grp, 'copy_input', None),
+                paint_center=('paint_center' in grp.attrs and grp.attrs['paint_center'])
             )
 
             ikeys = []
