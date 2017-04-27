@@ -69,6 +69,34 @@ class Layer(object):
 def bound(fan_in, fan_out):
     return 1.0 / np.sqrt(fan_in + fan_out)
 
+class Generator(Layer):
+    def __init__(self):
+        self.rng = T.shared_randomstreams.RandomStreams()
+        self.map = LinearTransformation((100, 64*64))
+
+    def expression(self, X):
+        # X shape: batch, n_channels, height, width
+        self.stream = self.rng.uniform(size=(X.shape[0], 100))
+        self.Z = self.map.expression(self.stream).reshape((X.shape[0], 64, 64))
+        return T.concatenate([self.Z.dimshuffle(0, 'x', 1, 2), X], axis=1)
+
+    def reg_loss(self):
+        return self.map.reg_loss()
+
+    def updates(self):
+        return self.map.updates()
+
+    def save(self, h5grp):
+        self.map.save(h5grp)
+
+    @staticmethod
+    def load(h5grp):
+        g = Generator()
+        g.map = LinearTransformation.load(h5grp)
+        return g
+
+
+
 class LSTM(Layer):
 
     def __init__(self, n_feature, n_state, last_state_only=False, const_input=False, n_step=None):
