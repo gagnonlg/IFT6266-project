@@ -389,6 +389,7 @@ class Flatten(Layer):
     def expression(self, X):
         return T.flatten(X, outdim=2)
 
+
 class Convolution(Layer):
 
     def __init__(self,
@@ -398,17 +399,31 @@ class Convolution(Layer):
                  width,
                  l2=0.0,
                  strides=(1,1),
-                 border_mode='full'):
+                 border_mode='full',
+                 gaus_init=False):
         self.filter_shape = (n_feature_maps, n_input_channels, height, width)
         self.border_mode = border_mode
         bound = n_input_channels * height * width
-        self.kernel = theano.shared(
-            np.random.uniform(
-                low=-bound,
-                high=bound,
-                size=self.filter_shape
-            ).astype('float32')
-        )
+
+        self.gaus_init = gaus_init
+
+        if self.gaus_init:
+
+            self.kernel = theano.shared(
+                np.random.normal(
+                    loc=0,
+                    scale=0.02,
+                    size=self.filter_shape
+                ).astype('float32')
+            )
+        else:
+            self.kernel = theano.shared(
+                np.random.uniform(
+                    low=-bound,
+                    high=bound,
+                    size=self.filter_shape
+                ).astype('float32')
+            )
 
         # ne bias per output feature map
         self.b = theano.shared(
@@ -443,6 +458,7 @@ class Convolution(Layer):
         h5grp.create_dataset('b', data=self.b.get_value())
         h5grp.create_dataset('l2', data=self.l2)
         h5grp.create_dataset('strides', data=self.strides)
+        h5grp.attrs['gaus_init'] = self.gaus_init
 
     @staticmethod
     def load(h5grp):
@@ -458,7 +474,8 @@ class Convolution(Layer):
             width=shape[3],
             l2=l2,
             strides=strides,
-            border_mode=border_mode
+            border_mode=border_mode,
+            gaus_init=('gaus_init' in h5grp and h5grp['gaus_init'])
         )
 
         layer.kernel.set_value(h5grp['kernel'].value)
