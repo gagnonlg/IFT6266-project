@@ -83,12 +83,14 @@ def main():
     log.info('Generating test images')
     borders = data['val/input'][:1000]
     if args.GAN:
-        centers = model(
+        borders_normed = borders * 2.0 / 255.0 - 1.0
+        centers_normed = model(
             np.concatenate(
-                [borders, np.random.uniform(size=(1000, 2000)).astype('float32')],
+                [borders_normed, np.random.uniform(size=(1000, 2000)).astype('float32')],
                 axis=1
             )
         )[:,borders.shape[1]:]
+        centers = (centers_normed + 1.0) * 255.0 / 2.0
     else:
         centers = model(borders)
 
