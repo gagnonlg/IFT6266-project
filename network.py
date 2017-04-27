@@ -700,12 +700,25 @@ class Softmax(Layer):
     def expression(self, X):
         return T.nnet.softmax(X)
 
+class BatchNormConv(Layer):
+
+    def expression(self, X):
+        # X of shape (batch, n_feature, width, height)
+        f = X.shape[1]
+        w = X.shape[2]
+        h = X.shape[3]
+        self.sample_mean = T.mean(T.mean(X, axis=0).reshape((f, w*h)), axis=1)
+        self.sample_variance = T.mean(T.var(X, axis=0).reshape((f, w*h)), axis=1)
+        normd = (X - self.sample_mean.dimshuffle('x', 0, 'x', 'x'))
+
+
 
 class BatchNorm(Layer):
 
-    def __init__(self, n_input):
+    def __init__(self, n_input, conv=False):
 
         self.n_input = n_input
+        self.conv = conv
 
         self.gamma = theano.shared(np.float32(1.0))
         self.beta = theano.shared(np.float32(0.0))
@@ -717,16 +730,31 @@ class BatchNorm(Layer):
             np.ones(n_input).astype('float32')
         )
 
+    def __stats(self, X):
+        if not self.conv:
+            mean = T.mean(X, axis=0)
+            var = T.var(X, axis=0)
+            return mean, var
+        else:
+            f = X.shape[1]
+            w = X.shape[2]
+            h = X.shape[3]
+            mean = T.mean(T.mean(X, axis=0).reshape((f, w*h)), axis=1)
+            var = T.mean(T.var(X, axis=0).reshape((f, w*h)), axis=1)
+            return mean.dimshuffle('x', 0, 'x', 'x'), var.dimshuffle('x', 0, 'x' , 'x')
+
+
     def save(self, h5grp):
         h5grp.create_dataset('n_input', data=self.n_input)
         h5grp.create_dataset('gamma', data=self.gamma.get_value())
         h5grp.create_dataset('beta', data=self.beta.get_value())
         h5grp.create_dataset('online_mean', data=self.online_mean.get_value())
         h5grp.create_dataset('online_variance', data=self.online_variance.get_value())
+        h5grp.attrs['conv'] = self.conv
 
     @staticmethod
     def load(h5grp):
-        layer = BatchNorm(h5grp['n_input'].value)
+        layer = BatchNorm(h5grp['n_input'].value, conv=('conv' in h5grp.attrs and h5grp.attrs['conv']))
         layer.gamma.set_value(h5grp['gamma'].value)
         layer.beta.set_value(h5grp['beta'].value)
         layer.online_mean.set_value(h5grp['online_mean'].value)
@@ -734,12 +762,15 @@ class BatchNorm(Layer):
         return layer
 
     def expression(self, X):
-        normd = (X - self.online_mean) / T.sqrt(self.online_variance + 0.001)
+        if self.conv:
+            normd = (X - self.online_mean.dimshuffle('x', 0,'x','x')) \
+                    / T.sqrt(self.online_variance.dimshuffle('x', 0, 'x', 'x') + 0.001)
+        else:
+            normd = (X - self.online_mean) / T.sqrt(self.online_variance + 0.001)
         return self.gamma * normd + self.beta
 
     def training_expression(self, X):
-        self.sample_mean = T.mean(X, axis=0)
-        self.sample_variance = T.var(X, axis=0)
+        self.sample_mean, self.sample_variance = self.__stats(X)
         normd = (X - self.sample_mean) / T.sqrt(self.sample_variance + 0.001)
         return self.gamma * normd + self.beta
 
@@ -747,12 +778,17 @@ class BatchNorm(Layer):
         return [self.gamma, self.beta]
 
     def updates(self):
-        mean_upd = self.online_mean * 0.99 + self.sample_mean * 0.01
-        var_upd = self.online_variance * 0.99 + self.sample_variance * 0.01
+        if self.conv:
+            mean_upd = self.online_mean * 0.99 + self.sample_mean.dimshuffle(1) * 0.01
+            var_upd = self.online_variance * 0.99 + self.sample_variance.dimshuffle(1) * 0.01
+        else:
+            mean_upd = self.online_mean * 0.99 + self.sample_mean * 0.01
+            var_upd = self.online_variance * 0.99 + self.sample_variance * 0.01
         return [
             (self.online_mean, mean_upd),
             (self.online_variance, var_upd)
         ]
+        return []
 
 
 
