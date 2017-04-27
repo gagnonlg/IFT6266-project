@@ -737,7 +737,8 @@ class Network(object):
                 momentum=0.0,
                 vartype=(T.matrix, T.matrix),
                 loss=mse_loss,
-                use_ADAM=False):
+                use_ADAM=False,
+                test_only=False):
 
         self.use_ADAM = use_ADAM
 
@@ -752,9 +753,10 @@ class Network(object):
         self.batch_size = batch_size
         self.cache_size = cache_size
 
-        self.__train_fun = self.__make_training_function(momentum, use_ADAM)
         self.__test_fun = self.__make_test_function()
-        self.__valid_fun = self.__make_validation_function()
+        if not test_only:
+            self.__train_fun = self.__make_training_function(momentum, use_ADAM)
+            self.__valid_fun = self.__make_validation_function()
 
 
     def __maybe_copy_input(self, input, output):
@@ -869,7 +871,7 @@ class Network(object):
             grp.create_dataset('batch_size', data=self.batch_size)
 
     @staticmethod
-    def load(path):
+    def load(path, test_only=False):
 
         with h5.File(path, 'r') as savefile:
 
@@ -909,7 +911,8 @@ class Network(object):
                 cache_size=cPickle.loads(grp.attrs['cache_size'].tostring()),
                 vartype=cPickle.loads(grp.attrs['vartype'].tostring()),
                 loss=loss,
-                use_ADAM=use_ADAM
+                use_ADAM=use_ADAM,
+                test_only=test_only
             )
 
 
