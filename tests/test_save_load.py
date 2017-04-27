@@ -131,9 +131,6 @@ test_layer(
     gen_data_conv
 )
 
-def gen_data_G():
-
-
 def gen_data_rnn():
     dataX =np.random.uniform(size=64*16).reshape((64,4,4)).astype('float32')
     dataY =np.random.uniform(size=64*5).reshape((64,5)).astype('float32')
