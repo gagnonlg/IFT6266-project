@@ -45,7 +45,9 @@ def test_layer(layer, gen_data):
         momentum=0.0,
         batch_size=dataX.shape[0],
         cache_size=(dataX.shape[0], dataX.shape[1:], dataY.shape[1:]),
-        vartype=(vartypeX, vartypeY)
+        vartype=(vartypeX, vartypeY),
+        use_ADAM=True,
+        ADAM_velocity=(0.5, 0.999)
     )
 
     net.train(dataX, dataY, (v_dataX, v_dataY), n_epochs=1)

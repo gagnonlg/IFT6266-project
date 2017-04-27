@@ -738,9 +738,11 @@ class Network(object):
                 vartype=(T.matrix, T.matrix),
                 loss=mse_loss,
                 use_ADAM=False,
-                test_only=False):
+                test_only=False,
+                ADAM_velocity=(0.9, 0.999)):
 
         self.use_ADAM = use_ADAM
+        self.ADAM_velocity = ADAM_velocity
 
         self.loss = loss
 
@@ -864,6 +866,7 @@ class Network(object):
             grp.attrs['vartype'] = np.void(cPickle.dumps((self.vartypeX, self.vartypeY)))
             grp.attrs['cache_size'] = np.void(cPickle.dumps(self.cache_size))
             grp.attrs['copy_input'] = np.void(cPickle.dumps(self.copy_input))
+            grp.attrs['ADAM_velocity'] = np.void(cPickle.dumps(self.ADAM_velocity))
 
             grp.create_dataset('use_ADAM', data=1.0 if self.use_ADAM else 0.0)
             grp.create_dataset('lr', data=self.lr)
@@ -912,7 +915,8 @@ class Network(object):
                 vartype=cPickle.loads(grp.attrs['vartype'].tostring()),
                 loss=loss,
                 use_ADAM=use_ADAM,
-                test_only=test_only
+                test_only=test_only,
+                ADAM_velocity=get_pickled_attr(grp, 'ADAM_velocity', (0.9, 0.999))
             )
 
 
@@ -945,8 +949,8 @@ class Network(object):
 
         # ADAM constants
         delta = 10e-8
-        rho1 = 0.9
-        rho2 = 0.999
+        rho1 = self.ADAM_velocity[0]
+        rho2 = self.ADAM_velocity[1]
 
         # placeholders
         X = self.vartypeX('X')
