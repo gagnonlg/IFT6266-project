@@ -617,7 +617,7 @@ class LinearTransformation(Layer):
 
 class ReLU(Layer):
     def __init__(self, alpha=0.0):
-        self.alpha = alpha
+        self.alpha = float(alpha)
 
     def expression(self, X):
         return T.nnet.relu(X, self.alpha)
