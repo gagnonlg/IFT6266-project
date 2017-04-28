@@ -3,8 +3,8 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
-<title>IFT6266 project blog</title>
-<!-- 2017-03-29 Wed 10:51 -->
+<title>IFT6266 Final project: conditional image generation</title>
+<!-- 2017-04-28 Fri 19:18 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Louis-Guillaume Gagnon" />
@@ -88,7 +88,7 @@
     { background-color: #ffff00; color: #000000; font-weight: bold; }
   /*]]>*/-->
 </style>
-<link rel="stylesheet" type="text/css" href="style1.css" />
+<style>body { width: 60%; text-align: left; }</style>
 <script type="text/javascript">
 /*
 @licstart  The following is the entire license notice for the
@@ -135,378 +135,488 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/javascript" src="http://orgmode.org/mathjax/MathJax.js"></script>
+<script type="text/javascript">
+<!--/*--><![CDATA[/*><!--*/
+    MathJax.Hub.Config({
+        // Only one of the two following lines, depending on user settings
+        // First allows browser-native MathML display, second forces HTML/CSS
+        //  config: ["MMLorHTML.js"], jax: ["input/TeX"],
+            jax: ["input/TeX", "output/HTML-CSS"],
+        extensions: ["tex2jax.js","TeX/AMSmath.js","TeX/AMSsymbols.js",
+                     "TeX/noUndefined.js"],
+        tex2jax: {
+            inlineMath: [ ["\\(","\\)"] ],
+            displayMath: [ ['$$','$$'], ["\\[","\\]"], ["\\begin{displaymath}","\\end{displaymath}"] ],
+            skipTags: ["script","noscript","style","textarea","pre","code"],
+            ignoreClass: "tex2jax_ignore",
+            processEscapes: false,
+            processEnvironments: true,
+            preview: "TeX"
+        },
+        showProcessingMessages: true,
+        displayAlign: "center",
+        displayIndent: "2em",
+
+        "HTML-CSS": {
+             scale: 100,
+             availableFonts: ["STIX","TeX"],
+             preferredFont: "TeX",
+             webFont: "TeX",
+             imageFont: "TeX",
+             showMathMenu: true,
+        },
+        MMLorHTML: {
+             prefer: {
+                 MSIE:    "MML",
+                 Firefox: "MML",
+                 Opera:   "HTML",
+                 other:   "HTML"
+             }
+        }
+    });
+/*]]>*///-->
+</script>
 </head>
 <body>
 <div id="content">
-<h1 class="title">IFT6266 project blog</h1>
+<h1 class="title">IFT6266 Final project: conditional image generation</h1>
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#sec-1">1. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-29 Wed 10:34]</span></span> Status report: convolutions!</a>
-<ul>
-<li><a href="#sec-1-1">1.1. Next steps</a></li>
-</ul>
-</li>
-<li><a href="#sec-2">2. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-21 Tue 10:28]</span></span> Status report</a>
-<ul>
-<li><a href="#sec-2-1">2.1. Dropout</a></li>
-<li><a href="#sec-2-2">2.2. Early stopping</a></li>
-<li><a href="#sec-2-3">2.3. Quantitative metric</a></li>
-<li><a href="#sec-2-4">2.4. Output layer</a></li>
-</ul>
-</li>
-<li><a href="#sec-3">3. <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</a>
-<ul>
-<li><a href="#sec-3-1">3.1. The Code</a></li>
-<li><a href="#sec-3-2">3.2. Validation</a></li>
-<li><a href="#sec-3-3">3.3. Baseline model</a></li>
-<li><a href="#sec-3-4">3.4. Next step</a></li>
-<li><a href="#sec-3-5">3.5. Note: Setting up the code on the hades cluster</a></li>
-</ul>
-</li>
+<li><a href="#sec-1">1. Introduction</a></li>
+<li><a href="#sec-2">2. Models</a></li>
+<li><a href="#sec-3">3. Code</a></li>
+<li><a href="#sec-4">4. Results</a></li>
+<li><a href="#sec-5">5. Conclusion</a></li>
 </ul>
 </div>
 </div>
 <div id="outline-container-sec-1" class="outline-2">
-<h2 id="sec-1"><span class="section-number-2">1</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-29 Wed 10:34]</span></span> Status report: convolutions!</h2>
+<h2 id="sec-1"><span class="section-number-2">1</span> Introduction</h2>
 <div class="outline-text-2" id="text-1">
 <p>
-The main change since my last report is that convolutional and pooling
-layers are now implemented. This ended up being more straightforward
-than I anticipated, using theano's conv2d and pool2d operations.
+This post is the final report for my implementation of the
+conditional image
+generation project <sup><a id="fnr.1" name="fnr.1" class="footref" href="#fn.1">1</a></sup>, in which the task is to generate the 32x32 center
+of a 64x64 RGB image, given the border and a caption.
 </p>
 
 <p>
-As usual, it is important to cross-check that my implementation is
-working as intended. To do so, I've implemented the LeNet-inspired
-network from deeplearning.net/tutorial/lenet.html and ran it on mnist.
+The post begins with a discussion of the models I considered for the
+task, followed by a presentation of the actual code
+implementation. Results are then discussed before concluding.
 </p>
 
 <p>
-<img src="./lenet_loss.png" alt="lenet_loss.png" /> <img src="./lenet_acc.png" alt="lenet_acc.png" />
-</p>
-
-<p>
-Excellent! Then, I tried a long shot: blindly adapting the input and
-output of that model to solve our image generation task. After 200
-epoch, we have something like:
-</p>
-
-
-<div class="figure">
-<p><img src="./test_image_longshot.jpg" alt="test_image_longshot.jpg" />
-</p>
-</div>
-
-<p>
-Which is underwhelming, to say the least. Oh well! As I've said, it
-was a long shot.
-</p>
-</div>
-
-<div id="outline-container-sec-1-1" class="outline-3">
-<h3 id="sec-1-1"><span class="section-number-3">1.1</span> Next steps</h3>
-<div class="outline-text-3" id="text-1-1">
-<p>
-I am currently in the process of implementing a recurrent layer such
-that I can use the captions. I first idea I'd like to try is to train
-some sort of auto-encoder on the captions to learn some useful
-representation that could be fed to a downstream model. I'm curious to
-see how much it would help.
-</p>
-
-<p>
-After that layer is implemented, it would be worthwhile start
-optimizing and trying more involved models such as GANs.
+My previous blog posts for this projects can be found <a href="./previous.html">here</a>, while the
+git repository containing the code can be browsed <a href="http://github.com/gagnonlg/IFT6266-project">here</a>.
 </p>
 </div>
 </div>
-</div>
-
 <div id="outline-container-sec-2" class="outline-2">
-<h2 id="sec-2"><span class="section-number-2">2</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-21 Tue 10:28]</span></span> Status report</h2>
+<h2 id="sec-2"><span class="section-number-2">2</span> Models</h2>
 <div class="outline-text-2" id="text-2">
 <p>
-A few things have changed since the last report.
+The obvious starting point in most deep learning project is the
+vanilla multi-layer perceptron. It consists of a stack of logistic
+regression layers, defined by an affine transformation that is
+non-linearly transformed:
 </p>
-</div>
-
-<div id="outline-container-sec-2-1" class="outline-3">
-<h3 id="sec-2-1"><span class="section-number-3">2.1</span> Dropout</h3>
-<div class="outline-text-3" id="text-2-1">
+\begin{equation}
+y = h(XW + b)
+\end{equation}
 <p>
-I implemented a dropout layer, which can be found at
-<a href="https://github.com/gagnonlg/IFT6266-project/blob/master/network.py#L51">https://github.com/gagnonlg/IFT6266-project/blob/master/network.py#L51</a>. Following
-the obvious implementation, it uses a theano "shared<sub>randomstream</sub>" to
-sample a binary mask for each input vector. The randomstream can be
-passed to the constructor such that we seed the generator only once
-for all layers.
-</p>
-</div>
-</div>
-
-<div id="outline-container-sec-2-2" class="outline-3">
-<h3 id="sec-2-2"><span class="section-number-3">2.2</span> Early stopping</h3>
-<div class="outline-text-3" id="text-2-2">
-<p>
-I tried to setup some early stopping mechanism, which monitors the
-training loss. Perhaps unsurprisingly, I didn't have much sucess at
-using this loss since it is not smooth at all. 
+where \(X\) is the design matrix containing one example per row and \(W\)
+and \(b\) are the parameters of the transformation. \(X\) can also be the
+output of an upstream layer.
 </p>
 
 <p>
-To gain insights into this, I looked the behaviour of the squared
-distance between the generated and the target patch for one image in
-isolation as a function of the training epoch. 
+Inside the network activation function \(h\) is usually the rectified
+linear unit \(max(0, X)\), but other activations can be used e.g. linear
+activation (i.e. no activation), sigmoid or tanh.
 </p>
 
+<p>
+If we want to reduce the number of parameters and introduce spatial
+invariance in the model, the matrix multiplication can be replaced by
+a convolution operation.
+</p>
+
+<p>
+Such network are usually trained by stochastic gradient descent. I
+have also considered the ADAM algorithm in which corrections for the
+first and second moment of the gradients are applied to the step size
+and the "generative adversarial network" framework for training the
+generating network, in which there are two networks: the generator and
+the discriminator. The generator loss is defined by its ability to
+fool the discriminator, who attempts to tell if a given sample comes
+from the data distribution.
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-3" class="outline-2">
+<h2 id="sec-3"><span class="section-number-2">3</span> Code</h2>
+<div class="outline-text-2" id="text-3">
+<p>
+The code discussed in this section can be browsed <a href="http://github.com/gagnonlg/IFT6266-project">here</a>, and
+corresponds to the "final" tag. Myself being a Keras user, I've
+decided to write everything in straight theano in order to learn a bit
+more about implementation details. This ended-up being much more work
+than I initialy had foreseen (the network.py file has over 1k SLOC),
+but I did learn a lot about the lower-level details and it made me
+appreciate how worthwile are the higher-level APIs provided by
+libraries like keras.
+</p>
+
+<p>
+This section starts with a presentation of the layer API and the
+different implementations. The network class, which wraps a collection
+of layers and provides the training logic is then described along with
+a specific function for generative adversarial training. I then
+discuss some small toy problems used to validate the implementation.
+</p>
+</div>
+
+<div id="outline-container-sec-3-1" class="outline-3">
+<h3 id="sec-3-1"><span class="section-number-3">3.1</span> Layers</h3>
+<div class="outline-text-3" id="text-3-1">
+</div><div id="outline-container-sec-3-1-1" class="outline-4">
+<h4 id="sec-3-1-1"><span class="section-number-4">3.1.1</span> API</h4>
+<div class="outline-text-4" id="text-3-1-1">
+<p>
+The interface that a layer must implement is defined by 7 methods:
+</p>
+
+<dl class="org-dl">
+<dt> <code>Layer.expression(self, X)</code> </dt><dd>The symbolic theano expression defining the layer
+</dd>
+<dt> <code>Layer.training_expression(self, X)</code> </dt><dd>In some cases, the
+expression is not the same at training and test time (e.g. dropout)
+</dd>
+<dt> <code>Layer.parameters(self)</code> </dt><dd>The list of trainable parameters
+</dd>
+<dt> <code>Layer.reg_loss(self)</code> </dt><dd>Auxilliary term to add to the global
+loss. This is used to implement weight norm penalties.
+</dd>
+<dt> <code>Layer.updates(self)</code> </dt><dd>List of <code>(variable, update)</code> tuples
+defining auxilliary update operations besides the gradient
+descent. Used, e.g. to compute the online mean in BatchNorm layers.
+</dd>
+<dt> <code>Layer.save(self, h5grp)</code> </dt><dd>Function used to save the layer
+configuration and parameters.
+</dd>
+<dt> <code>Layer.load(h5grp)</code> </dt><dd>Static method used to load a saved layer.
+</dd>
+</dl>
+
+<p>
+With this API, several layers were defined:
+</p>
+<dl class="org-dl">
+<dt> <code>Generator</code> </dt><dd>Created at the last minute to ease the task of
+writting the conditional GAN. Its expression takes as
+input a 64x64 image and outputs this image and a
+length-100 latent vector that is mapped by an affine
+transformation to a 4th channel.
+</dd>
+<dt> <code>LSTM</code> </dt><dd>long-short-term-memory recurrent layer. It is actually
+super slow and I didn't have enough time to debug this so
+I unfortunatly could not use it. It definitely made me
+realize the huge amout of paramters these networks have
+though! And, it provided an excuse to finally learn how to use <code>theano.scan</code>.
+</dd>
+<dt> <code>Recurrent</code> </dt><dd>A simple recurrent layer. Much simpler than the LSTM but much less powerfull.
+</dd>
+<dt> <code>Convolution</code> </dt><dd>The standard convolutional layer. The border mode
+and strides can be specified and there is also an
+option of including L2 loss on the kernel.
+</dd>
+<dt> <code>MaxPool</code> </dt><dd>Pooling by maximum value. Used to reduce the dimensions
+of the convolved feature maps.
+</dd>
+<dt> <code>Dropout</code> </dt><dd>The dropout regularization layer. At training time, a binary variable is sampled
+for each input from a Bernouilli distribution and is multiplied to the
+corresponding input.  At test time, the input is scaled by the
+inclusion probability (equivalent to multiply the weights of a
+downstream affine transformation layer)
+</dd>
+<dt> <code>ScaleOffset</code> </dt><dd>scale and offset the input by fixed constants.
+</dd>
+<dt> <code>Clip</code> </dt><dd>Constrain the input to be within a fixed range.
+</dd>
+<dt> <code>LinearTransformation</code> </dt><dd>This is actually the affine transformation
+but I never bothered setting the name right!
+</dd>
+<dt> <code>ReLU</code> </dt><dd>The rectified linear unit activation. It takes an optional
+<code>alpha</code> parameter defining the slope of the negative
+part. If this parameter is set at a different value than
+its default of zero, it yields the leaky ReLU.
+</dd>
+<dt> <code>Tanh</code> </dt><dd>hyperbolic tangent activation
+</dd>
+<dt> <code>Sigmoid</code> </dt><dd>Sigmoid activation
+</dd>
+<dt> <code>Softmax</code> </dt><dd>Softmax activation
+</dd>
+<dt> <code>BatchNorm</code> </dt><dd>The batch normalization layer, with a special setup
+if using to normalized convolved feature maps.
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div id="outline-container-sec-3-2" class="outline-3">
+<h3 id="sec-3-2"><span class="section-number-3">3.2</span> Network class</h3>
+<div class="outline-text-3" id="text-3-2">
+<p>
+The network class is a sequential collection of layers defining a
+model. The most interesting bits are probably the <code>__cache_generator</code>
+function, which allows a number of mini-batches of data to be cached
+in shared variables to eliminate the memory bottleneck, especially
+when running on the GPU, and (especially) the
+<code>__make_training_function</code> method, which actually implements SGD with momentum 
+and the ADAM algorithm.
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-3-3" class="outline-3">
+<h3 id="sec-3-3"><span class="section-number-3">3.3</span> GAN training</h3>
+<div class="outline-text-3" id="text-3-3">
+<p>
+There is a function, <code>train_GAN</code>, which take as input two compiled
+<code>Network</code> objects and train them with the GAN framework. The data and
+the latent code is passed by defining python generators from which the
+function sample batches. 
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-3-4" class="outline-3">
+<h3 id="sec-3-4"><span class="section-number-3">3.4</span> Validation</h3>
+<div class="outline-text-3" id="text-3-4">
+<p>
+Since I was starting from scratch, I needed a couple of simple toy
+problems to validate my layers. 
+</p>
+
+<p>
+All of the dense layers were tested on the simple problem of fitting a 
+noisy sine function, with satisfactory results:
+<img src="./sine_test.png" alt="sine_test.png" />
+</p>
+
+<p>
+The convolutional layers were tested with an implementation of LeNet5
+on the MNIST dataset:
+</p>
 
 <div class="figure">
-<p><img src="./se_vs_epoch.png" alt="se_vs_epoch.png" />
+<p><img src="./lenet_acc.png" alt="lenet_acc.png" />
 </p>
+<p><span class="figure-number">Figure 1:</span> Accuracy vs training epochs</p>
 </div>
 
 <p>
-Note that this is an image from the validation set.  We can see that
-it's not really a stable indication of the fit quality! It jumps
-around <b>a lot</b>, especially early in the fit where essentially randomly
-generated patches get better scores than later-on.
+The recurrent layers were tested on a classification task between two
+2D gaussian clusters, where the inputs are a variable number of
+sampling from a given cluster.
 </p>
 
 <p>
-For now, I've simply turned-off this early stopping while I look for a better 
-strategy. To mitigate the problem of the instability of the metric, maybe 
-using a moving average to smooth things out and using a burn-in time of 
-~ 100 epochs could work. 
+The GAN training function was tested on a generation task where the targeted distribution
+is a simple 2D normal distribution.
 </p>
 </div>
 </div>
+</div>
 
-<div id="outline-container-sec-2-3" class="outline-3">
-<h3 id="sec-2-3"><span class="section-number-3">2.3</span> Quantitative metric</h3>
-<div class="outline-text-3" id="text-2-3">
+<div id="outline-container-sec-4" class="outline-2">
+<h2 id="sec-4"><span class="section-number-2">4</span> Results</h2>
+<div class="outline-text-2" id="text-4">
 <p>
-I also looked into alternative metrics to quantify the quality of the
-generated image, which as we all know is an interesting problem in
-itself.  We can see an image as a collection of pixels, which
+I will now describe the results I've got. Before I jump into this though, a few words about
+what didn't work.
+</p>
+
+<p>
+As said earlier, my LSTM implementation has a speed bottleneck
+somewhere and I did not have time to debug it, rendering it unusable
+to produce embeddings from the caption.  I've also found that the
+simple recurrent layer was not really powerfull (given the limited
+hyperparameter tuning that I did), so unfortunatly I did not suceed in
+incorporating the captions in a working model.
+</p>
+
+<p>
+After I had established a working baseline with a dense MLP, I tried
+to optimized some convolutional models, but could not get them to
+output anything other than a grey patch. Looking at the blogs, though,
+it looked like students fiddling with conv -&gt; deconv architectures were getting
+similar results to my baseline, and so I did not spend more time with these models.
+</p>
+
+<p>
+What did seem to work, though, were generative adversarial networks. I
+first started just plugging my dense MLPs into this framework but that
+did not work very well, even following the GANHacks <sup><a id="fnr.2" name="fnr.2" class="footref" href="#fn.2">2</a></sup>
+recommendations. In the end, I ended up going down the obvious path of
+implementing the DCGAN model <sup><a id="fnr.3" name="fnr.3" class="footref" href="#fn.3">3</a></sup>. My implementation can be found in
+good<sub>models</sub>/model<sub>13</sub>.py in the code repository. Instead of passing
+only the border to the generator, I also pass the center patch
+generated from my baseline model. The latent code used is a length-100
+vector drawn from a uniformed distribution projected and reshaped into
+an additional channel. The big problem at this step was that there
+wasn't a significant amount of time left and so the training
+essentially had to work on the first try. After spending some time
+carefully checking that everything ran fine (but super slowly!) on the
+CPU, I optimistically submited some jobs on the Hades GPU cluster. As
+per Murphy's law, the code crashed and no jobs suceeded. I could not
+get it to reproduce on the CPU and didn't succeed on debugging the
+GPU-related problem, and since the CPU training was much too slow, I
+unfortunately don't have results for the DCGAN :(
+</p>
+</div>
+
+<div id="outline-container-sec-4-1" class="outline-3">
+<h3 id="sec-4-1"><span class="section-number-3">4.1</span> Metrics</h3>
+<div class="outline-text-3" id="text-4-1">
+<p>
+The gold standard is manual inspection of the generated images,
+however I also looked into alternative metrics to quantify the quality
+of the generated image, which as we all know is an interesting problem
+in itself.  We can see an image as a collection of pixels, which
 themselves can be viewed as instances of 256 different classes. In
 this view, it is possible to measure a probability distribution over
 pixel values for a given image. It is then possible to measure the
 Kullback-Liebler divergence (KL) between this distribution and another
 one.  KL measures (in a sense) how much 2 probability distribution
-differs. We can choose to compare the distribution from the generated image
-with the true image, or the distribution from the border.
+differs. We can choose to compare the distribution from the generated
+image with the true image, or the distribution from the border. As
+training progresses, this divergence goes down:
 </p>
 
 
 <div class="figure">
 <p><img src="./kl_vs_epoch.png" alt="kl_vs_epoch.png" />
 </p>
+<p><span class="figure-number">Figure 2:</span> The K-L divergence between the border and center for one image, as training progresses.</p>
 </div>
 
 <p>
 This measure jumps around also, which suggest that smoothing might be
 necessary, but it actually seems to be a good indication of the fit
 quality. Surprisingly this works as well when comparing with the true
-center patch or with the border, which suggest that unsupervised
-learning might be possible. Of course, minimizing this divergence only
+center patch or with the border! Of course, minimizing this divergence only
 ensures that the pixels are sampled from the right distribution but it
-cannot build the required structure. It could be used as an
-unsupervised pre-training pass followd by a "traditionnal" supervised
-fine-tuning pass.
+cannot quantify the structure in the images.
 </p>
 </div>
 </div>
 
-<div id="outline-container-sec-2-4" class="outline-3">
-<h3 id="sec-2-4"><span class="section-number-3">2.4</span> Output layer</h3>
-<div class="outline-text-3" id="text-2-4">
+
+<div id="outline-container-sec-4-2" class="outline-3">
+<h3 id="sec-4-2"><span class="section-number-3">4.2</span> Generated images</h3>
+<div class="outline-text-3" id="text-4-2">
 <p>
-It occured to me that it might be a bad idea to use sigmoid
-activations at the last layer because they saturate and since I'm
-training with MSE loss, the training could be made more difficult by
-the vanishing gradient. I changed the last layer of my nominal model
-and trained with the same other hyperparamters. After 1000 epochs, 
-the training still has not converged:
+I have three similar models which have what I deem to be acceptable
+results.  The patches are quite blurry, but they contain the right
+structure (at least partially).  The models are different
+configuration of a 3 hidden layer MLP with 1k hidden units per layer,
+with batchnorm at each layer and a sigmoid activation at the last
+layer. For the code, see
+good<sub>models</sub>/model<sub>0</sub>{1,3,4}.py.
+</p>
+
+<p>
+The first network is trained using SGD with momentum on a mean square
+error loss, using a very small learning rate (1e-7).
 </p>
 
 
 <div class="figure">
-<p><img src="./test_image_20298.png" alt="test_image_20298.png" />
+<p><img src="./model_01.final.jpg" alt="model_01.final.jpg" />
 </p>
 </div>
 
 <p>
-This suggest that optimizing the hyperparameters is warranted. However,
-I won't spend time doing that now before at least implementing a convolutional
-layer (this is the next step!).
-</p>
-</div>
-</div>
-</div>
-
-<div id="outline-container-sec-3" class="outline-2">
-<h2 id="sec-3"><span class="section-number-2">3</span> <span class="timestamp-wrapper"><span class="timestamp">[2017-03-07 Tue 16:11]</span></span> Introduction</h2>
-<div class="outline-text-2" id="text-3">
-<p>
-So I think it is about time I write an introductory post for my
-IFT6266 project blog. 
-</p>
-
-<p>
-During the last few weeks I've been slowly but surely starting to
-implement a baseline model for the inpainting task. To begin, I've
-chosen a simple densely connected MLP which I think should perform
-fairly well and is relatively easy to implement, even in straight
-theano which I'm not really used to (mainly used Keras in the past).
-</p>
-</div>
-
-<div id="outline-container-sec-3-1" class="outline-3">
-<h3 id="sec-3-1"><span class="section-number-3">3.1</span> The Code</h3>
-<div class="outline-text-3" id="text-3-1">
-<p>
-The code can be found on github:
-<a href="https://github.com/gagnonlg/IFT6266-project">https://github.com/gagnonlg/IFT6266-project</a>. Mainly of interest is the
-"network.py" file which implements the basic blocks needed. I actually
-take inspiration from the Keras abstraction of a model being a stack
-of layers. Each layer follows a simple API consisting of five methods:
-</p>
-
-<dl class="org-dl">
-<dt> Layer.expression(self, X) </dt><dd>Returns a theano symbolic expression
-for this layer, given an input tensor. Defaults to X (the
-identity).
-</dd>
-<dt> Layer.training<sub>expression</sub>(self, X) </dt><dd>In case the expression is
-different at training time, as in the case of a batch
-normalization layer for example. Defaults to Layer.expression.
-</dd>
-<dt> Layer.parameters(self, X) </dt><dd>Returns a list of trainable parameters
-for which the gradient of the loss function must be
-computed. Defaults to an empty list.
-</dd>
-<dt> Layer.reg<sub>loss</sub>(self, X) </dt><dd>Returns a regularization term to add to
-the loss. This can be used to implement L2 weight regularization,
-for example. Defaults to 0.
-</dd>
-<dt> Layer.updates(self, X) </dt><dd>Returns a list of updates to add to the
-training function. Used in batch normalization, for example, to
-update the running statistics on the mini-batches.
-</dd>
-</dl>
-
-<p>
-So Far, the following layers are defined:
-</p>
-
-<dl class="org-dl">
-<dt> ScaleOffset </dt><dd>Scale and offset the input tensor.
-</dd>
-<dt> Clip </dt><dd>Clip the input tensor within defined bounds.
-</dd>
-<dt> LinearTransformation </dt><dd>X*W + b, a staple of MLP's. Also supports L2
-regularization for W.
-</dd>
-<dt> ReLU </dt><dd>The rectified linear unit
-</dd>
-<dt> Sigmoid </dt><dd>The famous sigmoid activation
-</dd>
-<dt> BatchNorm </dt><dd>Batch normalization.
-</dd>
-</dl>
-
-<p>
-These layers are collected by a <b>Network</b> object, through its <b>add</b>
-method. The <b>compile</b> methods actually creates the needed theano
-functions. Right now mse loss is used and SGD with momentum is
-implemented. The <b>train</b> method iteratively caches chunks of the
-dataset in a shared variable from which minibatches are sampled for 
-the training.
-</p>
-</div>
-</div>
-
-<div id="outline-container-sec-3-2" class="outline-3">
-<h3 id="sec-3-2"><span class="section-number-3">3.2</span> Validation</h3>
-<div class="outline-text-3" id="text-3-2">
-<p>
-In my experience, it helps a lot to have a simple benchmark problem on
-which good results are easy to attain fast, in order to validate that
-everything is working when non-trivial changes are made. The
-validation used here is the simple problem of fitting a noisy 
-sinusoidal curve. See tests/test<sub>network</sub><sub>1</sub>.py. Using a 2-layer architecture
-with 100 hidden units per hidden layer, batch normalization, relu activations
-(but linear output) with some momentum and l2 regularization, the following
-performance is obtained after only 10 epochs:
+The second network is like the first one but using the ADAM algorithm
+with the default parameters.
 </p>
 
 
 <div class="figure">
-<p><img src="./sine_test.png" alt="sine_test.png" />
+<p><img src="./model_03.100.jpg" alt="model_03.100.jpg" />
 </p>
 </div>
-</div>
-</div>
 
-<div id="outline-container-sec-3-3" class="outline-3">
-<h3 id="sec-3-3"><span class="section-number-3">3.3</span> Baseline model</h3>
-<div class="outline-text-3" id="text-3-3">
 <p>
-My baseline model for the inpainting problem is a simple 3-layer
-densely connected MLP with 1000 units per layer, batch normalization,
-ReLU hidden activations, momentum and l2 regularization. The output
-consists of individual sigmoids for all pixels which are scaled
-by 255. The model was allowed to train for 1000 epochs. The
-performance obtained during the training can be visualised below for a
-validation image:
+The third one is like the second one, but the loss is a sum of the
+pixel-wise binary crossentropy. This effectively views each output as
+the probability that the given pixel in the given channel is fully
+activated.
 </p>
 
 
 <div class="figure">
-<p><img src="./test_images.gif" alt="test_images.gif" />
+<p><img src="./model_04.best.jpg" alt="model_04.best.jpg" />
 </p>
 </div>
 
 <p>
-The performance is actually better than I expected for such a
-relatively simple model! The network is quickly able to get at least
-the luminosity/color gradient right and later on resolves quite well
-some of the features such as the arm. However, as the training
-progresses, we can clearly see that the model tends to improve rather
-slowly. 
+These are relatively simple models, and so I'm pleasantly surprised that they work so well :)
 </p>
+</div>
 </div>
 </div>
 
-<div id="outline-container-sec-3-4" class="outline-3">
-<h3 id="sec-3-4"><span class="section-number-3">3.4</span> Next step</h3>
-<div class="outline-text-3" id="text-3-4">
+<div id="outline-container-sec-5" class="outline-2">
+<h2 id="sec-5"><span class="section-number-2">5</span> Conclusion</h2>
+<div class="outline-text-2" id="text-5">
 <p>
-The obvious next step is to implement a convolutionnal layer which I
-hope will help achieve better performance.
+While I'm a bit disappointed that I did not succeed in using the
+captions and that I could not produce DCGAN results do to a
+GPU-specific problem, I'm quite happy with what I've accomplished with
+this project. After all, I do have models which perform relatively
+well, and I must say I've learned a lot from having to implement every
+functionality in straight theano! At the same time, this makes me
+appreciate the <code>T.grad</code> function of theano, without which this would
+have been very difficult, and it also made me realize how easy the
+higher level APIs (e.g. Keras) make it to use deep learning.
 </p>
-</div>
-</div>
 
-<div id="outline-container-sec-3-5" class="outline-3">
-<h3 id="sec-3-5"><span class="section-number-3">3.5</span> Note: Setting up the code on the hades cluster</h3>
-<div class="outline-text-3" id="text-3-5">
 <p>
-I tried working with the module system but it seemed like a real pain
-to get a consistent environment setup for all the packages I needed so
-I resorted to install anaconda, as suggested on a blog from last
-year's IFT6266 course: <a href="https://ift6266.github.io/2016/02/19/install_theano/">https://ift6266.github.io/2016/02/19/install_theano/</a>.
+Overall, this was a fun project and a good learning experience :)
 </p>
 </div>
 </div>
+<div id="footnotes">
+<h2 class="footnotes">Footnotes: </h2>
+<div id="text-footnotes">
+
+<div class="footdef"><sup><a id="fn.1" name="fn.1" class="footnum" href="#fnr.1">1</a></sup> <p class="footpara">
+<a href="https://ift6266h17.wordpress.com/project-description/">https://ift6266h17.wordpress.com/project-description/</a>]
+</p></div>
+
+<div class="footdef"><sup><a id="fn.2" name="fn.2" class="footnum" href="#fnr.2">2</a></sup> <p class="footpara">
+<a href="https://github.com/soumith/ganhacks">https://github.com/soumith/ganhacks</a>
+</p></div>
+
+<div class="footdef"><sup><a id="fn.3" name="fn.3" class="footnum" href="#fnr.3">3</a></sup> <p class="footpara">
+<a href="http://arxiv.org/abs/1511.06434">http://arxiv.org/abs/1511.06434</a>
+</p></div>
+
+
 </div>
-</div>
+</div></div>
 <div id="postamble" class="status">
 <p class="author">Author: Louis-Guillaume Gagnon</p>
-<p class="date">Created: 2017-03-29 Wed 10:51</p>
-<p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.1.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
+<p class="date">Created: 2017-04-28 Fri 19:18</p>
+<p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.2.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
