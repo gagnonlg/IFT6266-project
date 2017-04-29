@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>IFT6266 Final project: conditional image generation</title>
-<!-- 2017-04-28 Fri 19:18 -->
+<!-- 2017-04-28 Fri 22:07 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Louis-Guillaume Gagnon" />
@@ -186,7 +186,7 @@ for the JavaScript code in this tag.
 <div id="text-table-of-contents">
 <ul>
 <li><a href="#sec-1">1. Introduction</a></li>
-<li><a href="#sec-2">2. Models</a></li>
+<li><a href="#sec-2">2. Conditional image generation</a></li>
 <li><a href="#sec-3">3. Code</a></li>
 <li><a href="#sec-4">4. Results</a></li>
 <li><a href="#sec-5">5. Conclusion</a></li>
@@ -215,46 +215,198 @@ git repository containing the code can be browsed <a href="http://github.com/gag
 </p>
 </div>
 </div>
+
 <div id="outline-container-sec-2" class="outline-2">
-<h2 id="sec-2"><span class="section-number-2">2</span> Models</h2>
+<h2 id="sec-2"><span class="section-number-2">2</span> Conditional image generation</h2>
 <div class="outline-text-2" id="text-2">
 <p>
-The obvious starting point in most deep learning project is the
-vanilla multi-layer perceptron. It consists of a stack of logistic
-regression layers, defined by an affine transformation that is
-non-linearly transformed:
+Let \(x\) be a 3D tensor representing an image, with element \(x_{i,j,k}\)
+reprensenting the pixel in row \(j\) and column \(k\), in channel \(i\). For
+this task, we will assume that there are 3 channels and that the
+images are 64 by 64. Let \(x^{(c)}\) be the 32x32 center patch of the image \(x\), and
+\(x^{(b)}\) be the border around it.
 </p>
+</div>
+
+<div id="outline-container-sec-2-1" class="outline-3">
+<h3 id="sec-2-1"><span class="section-number-3">2.1</span> Densely connected neural networks</h3>
+<div class="outline-text-3" id="text-2-1">
+<p>
+In the first proposed model familly, the formal problem we have to
+solve is to find a fixed mapping \(f: x^{(b)} \to x^{(c)}\). This task can be
+tackled with a parametric approach, namely, finding the best parameter
+set \(\theta\) in \(f(x^{(b)};\theta) = \hat{x}^{(c)}\). 
+</p>
+
+<p>
+We will define \(f(x^{(b);\theta})\) to be a densely connected,
+multi-layer neural network (note that this means that the input image
+\(x\) has to be flattened into a vector). The basic building block of
+this model is an affine transformation which is then non-linearly
+transformed through a rectified linear unit:
+</p>
+
 \begin{equation}
-y = h(XW + b)
+Y = max(0, XW + b)
 \end{equation}
+
 <p>
 where \(X\) is the design matrix containing one example per row and \(W\)
-and \(b\) are the parameters of the transformation. \(X\) can also be the
-output of an upstream layer.
+and \(b\) are the parameters of the transformation. These layers can be chained sequentially:
+</p>
+
+\begin{equation}
+Y^{(i+1)} = max(0, Y^{(i)}W^{(i)} + b^{(i)})
+\end{equation}
+
+<p>
+Where \(Y^{0} \equiv X\). At the output layer, a element-wise sigmoid activation will be used:
+</p>
+\begin{equation}
+\sigma(x) = \frac{1}{1 + e^{-x}}
+\end{equation}
+
+<p>
+which constrain the generated pixel values to be between 0 and 1. They
+can then be scaled by 255 to yield a valid image.
 </p>
 
 <p>
-Inside the network activation function \(h\) is usually the rectified
-linear unit \(max(0, X)\), but other activations can be used e.g. linear
-activation (i.e. no activation), sigmoid or tanh.
+The weights can then be iteratively updated by making small steps in
+the direction opposite to the gradient of a loss function. This loss function will
+either be the squared error:
+</p>
+\begin{equation}
+SE = (x^{(c)} - \hat{x}^{(c)})^{2}
+\end{equation}
+
+<p>
+If we view each pixel's output as a probability of being activated in
+a particular channel, then a natural loss function is the sum of the
+pixel-wise binary crossentropy:
+</p>
+\begin{equation}
+XE = - \sum_{i,j,k} (x_{i,j,k}^{(c)}log(\hat{x}^{(c)}_{i,j,k}) + (1 - x_{i,j,k}^{(c)})log(1 - \hat{x}^{(c)}_{i,j,k}) )
+\end{equation}
+
+<p>
+To prevent overfitting, a term penalizing large weights is added to the loss
+</p>
+\begin{equation}
+L_{W} = \alpha W^{T}W
+\end{equation}
+
+<p>
+During training, the distribution from a layer's output change as the
+weights of this layer are updated. This problem, refered to as the
+internal covariate shift , complicates the learning task of the
+downstream layers. This can be mitigated by using batch
+normalization <sup><a id="fnr.2" name="fnr.2" class="footref" href="#fn.2">2</a></sup>, a technique in which the input of a layer
+is normalized as a function of the mean and variance of the inputs 
+in a mini-batch:
+</p>
+\begin{equation}
+y = \gamma \frac{x - \mu}{\sqrt{\sigma^{2} + \delta}} + \beta
+\end{equation}
+
+<p>
+Where &gamma; and &beta; are learned parameters and &delta; is a small
+constant added for numerical stability.
 </p>
 
 <p>
-If we want to reduce the number of parameters and introduce spatial
-invariance in the model, the matrix multiplication can be replaced by
-a convolution operation.
+For the gradient descent, two different momentum schemes are
+considered. First, the "vanilla" momentum:
+</p>
+\begin{eqnarray}
+g = \nabla_{\theta} L(x^{(c)}, \hat{x}^{(c)}, \theta) \\
+v = \alpha v - \epsilon g \\
+\theta = \theta + v
+\end{eqnarray}
+
+<p>
+Where &alpha; and &epsilon; are fixed constants. The ADAM algorithm is also considered:
+</p>
+\begin{eqnarray}
+g = \nabla_{\theta} L(x^{(c)}, \hat{x}^{(c)}, \theta) \\
+r = \rho_{1}r + (1 - \rho_{1})g \\
+s = \rho_{2}s + (1 - \rho_{2})g\odot g \\
+\tilde{r} = \frac{r}{1 - \rho_{1}^{t}} \\
+\tilde{s} = \frac{s}{1 - \rho_{2}^{t}} \\
+\theta = \theta - \epsilon \frac{\tilde{r}}{\sqrt{\tilde{s} + \delta}}
+\end{eqnarray}
+</div>
+</div>
+
+<div id="outline-container-sec-2-2" class="outline-3">
+<h3 id="sec-2-2"><span class="section-number-3">2.2</span> Deep convolutional generative adversarial networks</h3>
+<div class="outline-text-3" id="text-2-2">
+<p>
+In the second familly of models considered, the goal is to model the
+probability distribution \(P(x^{(c)}|x^{(b)})\). This is achieved via a
+generator network, \(G(x^{(b)}| z)\) where the vector \(z \sim
+U(0, 1)\).
 </p>
 
 <p>
-Such network are usually trained by stochastic gradient descent. I
-have also considered the ADAM algorithm in which corrections for the
-first and second moment of the gradients are applied to the step size
-and the "generative adversarial network" framework for training the
-generating network, in which there are two networks: the generator and
-the discriminator. The generator loss is defined by its ability to
-fool the discriminator, who attempts to tell if a given sample comes
-from the data distribution.
+One effective way of training the generator is by using an auxiliary
+discriminator network <sup><a id="fnr.3" name="fnr.3" class="footref" href="#fn.3">3</a></sup>, which learns a mapping \(D(x^{(c)}|x^{(b)}) =
+p\), where \(p\) is the probability that \(x^{(c)}\) comes from the data
+distribution. The two networks are then trained in tandem using the
+same techniques described above. The discriminator loss is the binary
+cross-entropy where the positive examples are drawn from the data
+distribution and the negative from the generator:
 </p>
+\begin{equation}
+LD = - log(D(x^{(c)}|x^{(b)}) - log(1 - D(G(x^{(b)}, z)|x^{(b)}))
+\end{equation}
+
+<p>
+The generator is trained to fool the discriminator:
+</p>
+\begin{equation}
+LG = - D(G(x^{(b)}, z)|x^{(b)})
+\end{equation}
+
+<p>
+The actual architecture of \(G\) and \(D\) follow the outline of the DCGAN
+paper <sup><a id="fnr.4" name="fnr.4" class="footref" href="#fn.4">4</a></sup>, which make the following recommendation:
+</p>
+<ul class="org-ul">
+<li>Use convolutional instead of affine layers in G and D
+</li>
+<li>Use strided convolutions to upsample and downsample
+</li>
+<li>Use batch normalization in G and D
+</li>
+<li>Use ReLU hidden activations and a tanh output activation in G
+</li>
+<li>Use a leaky ReLU (a ReLU with a non-zero slope in the negative part) in D
+</li>
+</ul>
+
+<p>
+In convolutional layers, the affine mapping is replaced by
+convolutions with kernels which are slided across the image to produce
+feature maps.  By increasing the <i>stride</i> (the "step size" of the
+sliding of the kernels), the dimensionality of the feature maps
+can be reduced.
+</p>
+
+<p>
+To incorporate the latent code \(z\) in the input to the generator, the
+length vector is projected by an affine map and reshaped to a 64x64
+matrix, allowing it to be treated as a regular channel.
+</p>
+
+<p>
+Also, instead of feeding only the border to the generator, a complete image is
+used where the center is the output of a model from the first familly described above:
+</p>
+\begin{eqnarray}
+\tilde{G} \equiv \tilde{G}(x^{(b)}, f(x^{(b)}) = \hat{x}^{(c)}_{(0)}, z)
+\end{eqnarray}
+</div>
 </div>
 </div>
 
@@ -463,22 +615,19 @@ similar results to my baseline, and so I did not spend more time with these mode
 <p>
 What did seem to work, though, were generative adversarial networks. I
 first started just plugging my dense MLPs into this framework but that
-did not work very well, even following the GANHacks <sup><a id="fnr.2" name="fnr.2" class="footref" href="#fn.2">2</a></sup>
+did not work very well, even following the GANHacks <sup><a id="fnr.5" name="fnr.5" class="footref" href="#fn.5">5</a></sup>
 recommendations. In the end, I ended up going down the obvious path of
-implementing the DCGAN model <sup><a id="fnr.3" name="fnr.3" class="footref" href="#fn.3">3</a></sup>. My implementation can be found in
-good<sub>models</sub>/model<sub>13</sub>.py in the code repository. Instead of passing
-only the border to the generator, I also pass the center patch
-generated from my baseline model. The latent code used is a length-100
-vector drawn from a uniformed distribution projected and reshaped into
-an additional channel. The big problem at this step was that there
-wasn't a significant amount of time left and so the training
-essentially had to work on the first try. After spending some time
-carefully checking that everything ran fine (but super slowly!) on the
-CPU, I optimistically submited some jobs on the Hades GPU cluster. As
-per Murphy's law, the code crashed and no jobs suceeded. I could not
-get it to reproduce on the CPU and didn't succeed on debugging the
-GPU-related problem, and since the CPU training was much too slow, I
-unfortunately don't have results for the DCGAN :(
+implementing the DCGAN model <sup><a id="fnr.6" name="fnr.6" class="footref" href="#fn.6">6</a></sup>. My implementation can be found in
+<code>good_models/model_13.py</code> in the code repository. The big problem at
+this step was that there wasn't a significant amount of time left and
+so the training essentially had to work on the first try. After
+spending some time carefully checking that everything ran fine (but
+super slowly!) on the CPU, I optimistically submited some jobs on the
+Hades GPU cluster. As per Murphy's law, the code crashed and no jobs
+suceeded. I could not get it to reproduce on the CPU and didn't
+succeed on debugging the GPU-related problem, and since the CPU
+training was much too slow, I unfortunately don't have results for the
+DCGAN :(
 </p>
 </div>
 
@@ -603,10 +752,22 @@ Overall, this was a fun project and a good learning experience :)
 </p></div>
 
 <div class="footdef"><sup><a id="fn.2" name="fn.2" class="footnum" href="#fnr.2">2</a></sup> <p class="footpara">
-<a href="https://github.com/soumith/ganhacks">https://github.com/soumith/ganhacks</a>
+<a href="https://arxiv.org/abs/1502.03167">https://arxiv.org/abs/1502.03167</a>
 </p></div>
 
 <div class="footdef"><sup><a id="fn.3" name="fn.3" class="footnum" href="#fnr.3">3</a></sup> <p class="footpara">
+<a href="http://arxiv.org/abs/1406.2661">http://arxiv.org/abs/1406.2661</a>
+</p></div>
+
+<div class="footdef"><sup><a id="fn.4" name="fn.4" class="footnum" href="#fnr.4">4</a></sup> <p class="footpara">
+<a href="http://arxiv.org/abs/1511.06434">http://arxiv.org/abs/1511.06434</a>
+</p></div>
+
+<div class="footdef"><sup><a id="fn.5" name="fn.5" class="footnum" href="#fnr.5">5</a></sup> <p class="footpara">
+<a href="https://github.com/soumith/ganhacks">https://github.com/soumith/ganhacks</a>
+</p></div>
+
+<div class="footdef"><sup><a id="fn.6" name="fn.6" class="footnum" href="#fnr.6">6</a></sup> <p class="footpara">
 <a href="http://arxiv.org/abs/1511.06434">http://arxiv.org/abs/1511.06434</a>
 </p></div>
 
@@ -615,7 +776,7 @@ Overall, this was a fun project and a good learning experience :)
 </div></div>
 <div id="postamble" class="status">
 <p class="author">Author: Louis-Guillaume Gagnon</p>
-<p class="date">Created: 2017-04-28 Fri 19:18</p>
+<p class="date">Created: 2017-04-28 Fri 22:07</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.2.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>

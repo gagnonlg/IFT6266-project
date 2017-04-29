@@ -18,37 +18,144 @@ implementation. Results are then discussed before concluding.
 # Link to previous.html
 My previous blog posts for this projects can be found [[./previous.html][here]], while the
 git repository containing the code can be browsed [[http://github.com/gagnonlg/IFT6266-project][here]].
-* Models
-# description: affine map + non-lin
-The obvious starting point in most deep learning project is the
-vanilla multi-layer perceptron. It consists of a stack of logistic
-regression layers, defined by an affine transformation that is
-non-linearly transformed:
-# formula
+
+* Conditional image generation
+
+Let $x$ be a 3D tensor representing an image, with element $x_{i,j,k}$
+reprensenting the pixel in row $j$ and column $k$, in channel $i$. For
+this task, we will assume that there are 3 channels and that the
+images are 64 by 64. Let $x^{(c)}$ be the 32x32 center patch of the image $x$, and
+$x^{(b)}$ be the border around it.
+
+** Densely connected neural networks
+
+In the first proposed model familly, the formal problem we have to
+solve is to find a fixed mapping $f: x^{(b)} \to x^{(c)}$. This task can be
+tackled with a parametric approach, namely, finding the best parameter
+set $\theta$ in $f(x^{(b)};\theta) = \hat{x}^{(c)}$. 
+
+We will define $f(x^{(b);\theta})$ to be a densely connected,
+multi-layer neural network (note that this means that the input image
+$x$ has to be flattened into a vector). The basic building block of
+this model is an affine transformation which is then non-linearly
+transformed through a rectified linear unit:
+
 \begin{equation}
-y = h(XW + b)
+Y = max(0, XW + b)
 \end{equation}
+
 where $X$ is the design matrix containing one example per row and $W$
-and $b$ are the parameters of the transformation. $X$ can also be the
-output of an upstream layer.
+and $b$ are the parameters of the transformation. These layers can be chained sequentially:
 
-# activations hidden & output
-Inside the network activation function $h$ is usually the rectified
-linear unit $max(0, X)$, but other activations can be used e.g. linear
-activation (i.e. no activation), sigmoid or tanh.
+\begin{equation}
+Y^{(i+1)} = max(0, Y^{(i)}W^{(i)} + b^{(i)})
+\end{equation}
 
-If we want to reduce the number of parameters and introduce spatial
-invariance in the model, the matrix multiplication can be replaced by
-a convolution operation.
+Where $Y^{0} \equiv X$. At the output layer, a element-wise sigmoid activation will be used:
+\begin{equation}
+\sigma(x) = \frac{1}{1 + e^{-x}}
+\end{equation}
 
-Such network are usually trained by stochastic gradient descent. I
-have also considered the ADAM algorithm in which corrections for the
-first and second moment of the gradients are applied to the step size
-and the "generative adversarial network" framework for training the
-generating network, in which there are two networks: the generator and
-the discriminator. The generator loss is defined by its ability to
-fool the discriminator, who attempts to tell if a given sample comes
-from the data distribution.
+which constrain the generated pixel values to be between 0 and 1. They
+can then be scaled by 255 to yield a valid image.
+
+The weights can then be iteratively updated by making small steps in
+the direction opposite to the gradient of a loss function. This loss function will
+either be the squared error:
+\begin{equation}
+SE = (x^{(c)} - \hat{x}^{(c)})^{2}
+\end{equation}
+
+If we view each pixel's output as a probability of being activated in
+a particular channel, then a natural loss function is the sum of the
+pixel-wise binary crossentropy:
+\begin{equation}
+XE = - \sum_{i,j,k} (x_{i,j,k}^{(c)}log(\hat{x}^{(c)}_{i,j,k}) + (1 - x_{i,j,k}^{(c)})log(1 - \hat{x}^{(c)}_{i,j,k}) )
+\end{equation}
+
+To prevent overfitting, a term penalizing large weights is added to the loss
+\begin{equation}
+L_{W} = \alpha W^{T}W
+\end{equation}
+
+During training, the distribution from a layer's output change as the
+weights of this layer are updated. This problem, refered to as the
+internal covariate shift , complicates the learning task of the
+downstream layers. This can be mitigated by using batch
+normalization [fn:1], a technique in which the input of a layer
+is normalized as a function of the mean and variance of the inputs 
+in a mini-batch:
+\begin{equation}
+y = \gamma \frac{x - \mu}{\sqrt{\sigma^{2} + \delta}} + \beta
+\end{equation}
+
+Where \gamma and \beta are learned parameters and \delta is a small
+constant added for numerical stability.
+
+For the gradient descent, two different momentum schemes are
+considered. First, the "vanilla" momentum:
+\begin{eqnarray}
+g = \nabla_{\theta} L(x^{(c)}, \hat{x}^{(c)}, \theta) \\
+v = \alpha v - \epsilon g \\
+\theta = \theta + v
+\end{eqnarray}
+
+Where \alpha and \epsilon are fixed constants. The ADAM algorithm is also considered:
+\begin{eqnarray}
+g = \nabla_{\theta} L(x^{(c)}, \hat{x}^{(c)}, \theta) \\
+r = \rho_{1}r + (1 - \rho_{1})g \\
+s = \rho_{2}s + (1 - \rho_{2})g\odot g \\
+\tilde{r} = \frac{r}{1 - \rho_{1}^{t}} \\
+\tilde{s} = \frac{s}{1 - \rho_{2}^{t}} \\
+\theta = \theta - \epsilon \frac{\tilde{r}}{\sqrt{\tilde{s} + \delta}}
+\end{eqnarray}
+
+** Deep convolutional generative adversarial networks
+
+In the second familly of models considered, the goal is to model the
+probability distribution $P(x^{(c)}|x^{(b)})$. This is achieved via a
+generator network, $G(x^{(b)}| z)$ where the vector $z \sim
+U(0, 1)$.
+
+One effective way of training the generator is by using an auxiliary
+discriminator network [fn:2], which learns a mapping $D(x^{(c)}|x^{(b)}) =
+p$, where $p$ is the probability that $x^{(c)}$ comes from the data
+distribution. The two networks are then trained in tandem using the
+same techniques described above. The discriminator loss is the binary
+cross-entropy where the positive examples are drawn from the data
+distribution and the negative from the generator:
+\begin{equation}
+LD = - log(D(x^{(c)}|x^{(b)}) - log(1 - D(G(x^{(b)}, z)|x^{(b)}))
+\end{equation}
+
+The generator is trained to fool the discriminator:
+\begin{equation}
+LG = - D(G(x^{(b)}, z)|x^{(b)})
+\end{equation}
+
+The actual architecture of $G$ and $D$ follow the outline of the DCGAN
+paper [fn:3], which make the following recommendation:
++ Use convolutional instead of affine layers in G and D
++ Use strided convolutions to upsample and downsample
++ Use batch normalization in G and D
++ Use ReLU hidden activations and a tanh output activation in G
++ Use a leaky ReLU (a ReLU with a non-zero slope in the negative part) in D
+
+In convolutional layers, the affine mapping is replaced by
+convolutions with kernels which are slided across the image to produce
+feature maps.  By increasing the /stride/ (the "step size" of the
+sliding of the kernels), the dimensionality of the feature maps
+can be reduced.
+
+To incorporate the latent code $z$ in the input to the generator, the
+length vector is projected by an affine map and reshaped to a 64x64
+matrix, allowing it to be treated as a regular channel.
+
+Also, instead of feeding only the border to the generator, a complete image is
+used where the center is the output of a model from the first familly described above:
+\begin{eqnarray}
+\tilde{G} \equiv \tilde{G}(x^{(b)}, f(x^{(b)}) = \hat{x}^{(c)}_{(0)}, z)
+\end{eqnarray}
 
 * Code
 
@@ -180,19 +287,16 @@ first started just plugging my dense MLPs into this framework but that
 did not work very well, even following the GANHacks [2]
 recommendations. In the end, I ended up going down the obvious path of
 implementing the DCGAN model [3]. My implementation can be found in
-good_models/model_13.py in the code repository. Instead of passing
-only the border to the generator, I also pass the center patch
-generated from my baseline model. The latent code used is a length-100
-vector drawn from a uniformed distribution projected and reshaped into
-an additional channel. The big problem at this step was that there
-wasn't a significant amount of time left and so the training
-essentially had to work on the first try. After spending some time
-carefully checking that everything ran fine (but super slowly!) on the
-CPU, I optimistically submited some jobs on the Hades GPU cluster. As
-per Murphy's law, the code crashed and no jobs suceeded. I could not
-get it to reproduce on the CPU and didn't succeed on debugging the
-GPU-related problem, and since the CPU training was much too slow, I
-unfortunately don't have results for the DCGAN :(
+~good_models/model_13.py~ in the code repository. The big problem at
+this step was that there wasn't a significant amount of time left and
+so the training essentially had to work on the first try. After
+spending some time carefully checking that everything ran fine (but
+super slowly!) on the CPU, I optimistically submited some jobs on the
+Hades GPU cluster. As per Murphy's law, the code crashed and no jobs
+suceeded. I could not get it to reproduce on the CPU and didn't
+succeed on debugging the GPU-related problem, and since the CPU
+training was much too slow, I unfortunately don't have results for the
+DCGAN :(
 
 ** Metrics
 
@@ -271,4 +375,10 @@ Overall, this was a fun project and a good learning experience :)
 [2] https://github.com/soumith/ganhacks
 
 [3] http://arxiv.org/abs/1511.06434
+
+[fn:1] https://arxiv.org/abs/1502.03167
+
+[fn:2] http://arxiv.org/abs/1406.2661
+
+[fn:3] http://arxiv.org/abs/1511.06434
 
